@@ -9,8 +9,8 @@ from copy import deepcopy
 from time import time
 from omegaconf import OmegaConf
 
-
-import apex
+from tqdm import tqdm
+# import apex
 import torch
 import wandb
 import torch.multiprocessing as mp
@@ -119,6 +119,7 @@ def train_loop(args):
 
     # Setup dataset
     transform = transforms.Compose([
+        transforms.Resize(size=(config.data.resolution)), # for purpose of outside dataset.
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
@@ -141,7 +142,7 @@ def train_loop(args):
     # Create model:
 
     vae = get_model(args.pretrained_path).to(device)
-    vae = torch.compile(vae)
+    # vae = torch.compile(vae)
     assert config.model.in_size * 8 == config.data.resolution
     model = Precond_models[config.model.precond](
         img_resolution=config.model.in_size,
@@ -159,9 +160,10 @@ def train_loop(args):
     mprint(f'extras: {model.model.extras}, cls_token: {model.model.cls_token}')
 
     # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
-    optimizer = apex.optimizers.FusedAdam(model.parameters(), lr=config.train.lr, adam_w_mode=True, weight_decay=0)
-    model = torch.compile(model)
-    ema = torch.compile(ema)
+    # optimizer = apex.optimizers.FusedAdam(model.parameters(), lr=config.train.lr, adam_w_mode=True, weight_decay=0)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=0)
+    # model = torch.compile(model)
+    # ema = torch.compile(ema)
     # Load checkpoints
     train_steps_start = 0
     epoch_start = 0
@@ -190,11 +192,13 @@ def train_loop(args):
             os.makedirs(args.outdir, exist_ok=True)
             generate_with_net(args, ema, device)
             dist.barrier()
-            fid = calc(args.outdir, config.eval.ref_path, args.num_expected, args.global_seed, args.fid_batch_size)
-            mprint(f"time for fid calc: {time() - start_time}")
-            if rank == 0 and args.use_wandb:
-                wandb.log({f'fid': fid}, step=train_steps_start)
-            dist.barrier()
+
+            # NO FID for now
+            # fid = calc(args.outdir, config.eval.ref_path, args.num_expected, args.global_seed, args.fid_batch_size)
+            # mprint(f"time for fid calc: {time() - start_time}")
+            # if rank == 0 and args.use_wandb:
+            #     wandb.log({f'fid': fid}, step=train_steps_start)
+            # dist.barrier()
 
     model = DDP(model.to(device), device_ids=[device])
 
@@ -220,7 +224,9 @@ def train_loop(args):
     for epoch in range(epoch_start, config.train.epochs):
         sampler.set_epoch(epoch)
         mprint(f"Beginning epoch {epoch}...")
-        for x, y in loader:
+        pbar = tqdm(loader)
+
+        for x, y in pbar:
             x = x.to(device)
             with torch.no_grad():
                 # map input image to latent space and normalize it. 
@@ -247,6 +253,7 @@ def train_loop(args):
                     # loss_mean.backward()
                     scaler.scale(loss_mean).backward()
                     loss_batch += loss_mean.item()
+            
 
             # Update weights with lr warmup.
             lr_cur = config.train.lr * min(train_steps * global_batch_size / max(config.train.lr_rampup_kimg * 1000, 1e-8), 1)
@@ -299,14 +306,17 @@ def train_loop(args):
                     start_time = time()
                     args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps}_cfg{args.cfg_scale}')
                     os.makedirs(args.outdir, exist_ok=True)
-                    generate_with_net(args, ema, vae, device)
+                    generate_with_net(args, ema, device, vae)
                     dist.barrier()
-                    fid = calc(args.outdir, args.ref_path, args.num_expected, args.global_seed, args.fid_batch_size)
-                    mprint(f"time for fid calc: {time() - start_time}, fid: {fid}")
-                    if rank == 0 and args.use_wandb:
-                        wandb.log({f'fid': fid}, step=train_steps)
-                    dist.barrier()
+                    # for now no FID scoring
+                    # fid = calc(args.outdir, args.ref_path, args.num_expected, args.global_seed, args.fid_batch_size) 
+                    # mprint(f"time for fid calc: {time() - start_time}, fid: {fid}")
+                    # if rank == 0 and args.use_wandb:
+                    #     wandb.log({f'fid': fid}, step=train_steps)
+                    # dist.barrier()
                 start_time = time()
+
+            pbar.set_description(f'epoch {epoch}, batch loss: {loss_batch}, total steps: {train_steps}')
                 
     cleanup()
     if rank == 0:
@@ -346,12 +356,12 @@ if __name__ == '__main__':
 
     # sampling
     parser.add_argument('--enable_eval', action='store_true', help='enable fid calc during training')
-    parser.add_argument('--seeds', type=parse_int_list, default='0-49999', help='Random seeds (e.g. 1,2,5-10)')
+    parser.add_argument('--seeds', type=parse_int_list, default='0-127', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'
     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
     parser.add_argument('--max_batch_size', type=int, default=128, help='Maximum batch size per GPU during sampling')
 
-    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
+    parser.add_argument("--cfg_scale", type=parse_float_none, default=4, help='None = no guidance, by default = 4.0') # default=None
 
     parser.add_argument('--num_steps', type=int, default=40, help='Number of sampling steps')
     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
@@ -361,8 +371,8 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
     parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
 
-    parser.add_argument('--ref_path', type=str, default='assets/fid_stats/fid_stats_imagenet256_guided_diffusion.npz', help='Dataset reference statistics')
-    parser.add_argument('--num_expected', type=int, default=50000, help='Number of images to use')
+    parser.add_argument('--ref_path', type=str, default='assets/fid_stats/VIRTUAL_imagenet256_labeled.npz', help='Dataset reference statistics')
+    parser.add_argument('--num_expected', type=int, default=128, help='Number of images to use') # default=50000
     parser.add_argument('--fid_batch_size', type=int, default=256, help='Maximum batch size per GPU per GPU')
 
     args = parser.parse_args()

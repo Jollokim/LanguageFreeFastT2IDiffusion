@@ -228,7 +228,7 @@ def retrieve_n_features(batch_size, feat_path, feat_dim, num_classes, device, sp
 
 
 @torch.no_grad()
-def generate_with_net(args, net, device, feat_path=None, ext_feature_dim=0):
+def generate_with_net(args, net, device, vae=None, feat_path=None, ext_feature_dim=0):
     rank = args.global_rank
     size = args.global_size
     seeds = args.seeds
@@ -246,8 +246,9 @@ def generate_with_net(args, net, device, feat_path=None, ext_feature_dim=0):
     have_ablation_kwargs = any(x in sampler_kwargs for x in ['solver', 'discretization', 'schedule', 'scaling'])
     sampler_fn = ablation_sampler if have_ablation_kwargs else edm_sampler
     mprint(f"sampler_kwargs: {sampler_kwargs}, \nsampler fn: {sampler_fn.__name__}")
-    # Setup autoencoder
-    vae = autoencoder.get_model(args.pretrained_path).to(device)
+    # Setup autoencoder (if not present in parameters)
+    if vae is None:
+        vae = autoencoder.get_model(args.pretrained_path).to(device)
 
     # generate images
     mprint(f'Generating {len(seeds)} images to "{args.outdir}"...')

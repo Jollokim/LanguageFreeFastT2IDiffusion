@@ -61,7 +61,7 @@ def imagenet_lmdb_dataset(
     train_data = imagenet_lmdb_dataset(traindir, transform=train_transform)
     valid_data = imagenet_lmdb_dataset(validdir, transform=val_transform)
     """
-
+    # some issue here with loading data I recon
     if root.endswith('/'):
         root = root[:-1]
     pt_path = os.path.join(
@@ -112,8 +112,9 @@ class ImageLMDB(VisionDataset):
         # load image from path
         if not hasattr(self, 'txn'):
             self.open_db()
-        bytedata = self.txn.get(path.encode('ascii'))
-        img = Image.open(io.BytesIO(bytedata)).convert('RGB')
+        # bytedata = self.txn.get(path.encode('ascii'))
+        # img = Image.open(io.BytesIO(bytedata)).convert('RGB') # Could not understand byte encoding of paths
+        img = Image.open(path).convert('RGB')
         arr = center_crop_arr(img, self.resolution)
         if self.transform is not None:
             arr = self.transform(arr)

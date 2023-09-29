@@ -1,3 +1,8 @@
+slurm_out/
+data/
+venv/
+assets/
+
 tmp
 results
 **/__pycache__/**

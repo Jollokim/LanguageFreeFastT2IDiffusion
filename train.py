@@ -12,7 +12,6 @@ from omegaconf import OmegaConf
 from tqdm import tqdm
 # import apex
 import torch
-import wandb
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DistributedSampler, DataLoader
@@ -30,6 +29,8 @@ from utils import dist, mprint, get_latest_ckpt, Logger, \
     str2bool, parse_str_none, parse_int_list, parse_float_none
 
 from autoencoder import get_model
+
+from torch.utils.tensorboard import SummaryWriter
 
 # ------------------------------------------------------------
 # Training Helper Function
@@ -108,14 +109,10 @@ def train_loop(args):
 
     if rank == 0:
         logger = Logger(file_name=f'{experiment_dir}/log.txt', file_mode="a+", should_flush=True)
-        # setup wandb
-        if args.use_wandb:
-            wandb.init(entity=config.wandb.entity,
-                       project=config.wandb.project,
-                       group=config.wandb.group,
-                       config=OmegaConf.to_container(config),
-                       reinit=True,
-                       settings=wandb.Settings(start_method='fork'))
+        # setup tensorboard here
+        if config.log.use_tensorboard:
+            tensorboard_logger = SummaryWriter(f'{experiment_dir}/tensorboard')
+
 
     # Setup dataset
     transform = transforms.Compose([
@@ -279,8 +276,11 @@ def train_loop(args):
                 dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
                 avg_loss = avg_loss.item() / size
                 mprint(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
-                if rank == 0 and args.use_wandb:
-                    wandb.log({f'train Loss': avg_loss, 'lr': lr_cur}, step=train_steps)
+                
+                # log loss
+                if rank == 0 and config.log.use_tensorboard:
+                    tensorboard_logger.add_scalar('Loss/total', avg_loss, train_steps)
+                
                 # Reset monitoring variables:
                 running_loss = 0
                 log_steps = 0
@@ -321,8 +321,7 @@ def train_loop(args):
     cleanup()
     if rank == 0:
         logger.close()
-        if args.use_wandb:
-            wandb.finish()
+
 
 
 if __name__ == '__main__':
@@ -335,6 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('--node_rank', type=int, default=0, help='The index of node.')
     parser.add_argument('--local_rank', type=int, default=0, help='rank of process in the node')
     parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
+    parser.add_argument('--master_port', type=str, default='6020', help='address for master')
 
     # training
     parser.add_argument("--feat_path", type=str, default='')
@@ -349,14 +349,13 @@ if __name__ == '__main__':
 
     parser.add_argument("--log_every", type=int, default=100)
     parser.add_argument("--ckpt_every", type=int, default=50_000)
-    parser.add_argument("--use_wandb", action='store_true', help='enable wandb logging')
     parser.add_argument("--use_ckpt_path", type=str2bool, default=True)
     parser.add_argument("--use_strict_load", type=str2bool, default=True)
     parser.add_argument("--tag", type=str, default='')
 
     # sampling
     parser.add_argument('--enable_eval', action='store_true', help='enable fid calc during training')
-    parser.add_argument('--seeds', type=parse_int_list, default='0-127', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'
+    parser.add_argument('--seeds', type=parse_int_list, default='0-15', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'
     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
     parser.add_argument('--max_batch_size', type=int, default=128, help='Maximum batch size per GPU during sampling')
@@ -372,7 +371,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
 
     parser.add_argument('--ref_path', type=str, default='assets/fid_stats/VIRTUAL_imagenet256_labeled.npz', help='Dataset reference statistics')
-    parser.add_argument('--num_expected', type=int, default=128, help='Number of images to use') # default=50000
+    parser.add_argument('--num_expected', type=int, default=16, help='Number of images to use') # default=50000
     parser.add_argument('--fid_batch_size', type=int, default=256, help='Maximum batch size per GPU per GPU')
 
     args = parser.parse_args()

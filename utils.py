@@ -84,7 +84,7 @@ def ddp_sync(module, sync):
 def init_processes(fn, args):
     """ Initialize the distributed environment. """
     os.environ['MASTER_ADDR'] = args.master_address
-    os.environ['MASTER_PORT'] = '6020'
+    os.environ['MASTER_PORT'] = args.master_port
     print(f'MASTER_ADDR = {os.environ["MASTER_ADDR"]}')
     print(f'MASTER_PORT = {os.environ["MASTER_PORT"]}')
     torch.cuda.set_device(args.local_rank)

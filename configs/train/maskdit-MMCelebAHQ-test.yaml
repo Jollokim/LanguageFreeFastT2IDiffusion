@@ -38,9 +38,12 @@ train:
 eval: # FID evaluation
   batchsize: 50
   ref_path: assets/fid_stats/VIRTUAL_imagenet256_labeled.npz
+  fid_sample_size: 100 # testset size
 
 log:
   log_every: 10
   ckpt_every: 10 #12_500
+  fid_every: 10 #
+  
   tag: pretrain
   use_tensorboard: True

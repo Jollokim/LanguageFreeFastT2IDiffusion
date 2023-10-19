@@ -23,6 +23,8 @@ from train_utils.loss import Losses
 from train_utils.datasets import imagenet_lmdb_dataset
 from train_utils.helper import get_mask_ratio_fn
 
+from pytorch_fid.fid_score import calculate_fid_given_paths
+
 from sample import generate_with_net
 from utils import dist, mprint, get_latest_ckpt, Logger, \
     ddp_sync, init_processes, cleanup, \
@@ -74,6 +76,11 @@ def train_loop(args):
 
     seed = args.global_rank * args.num_workers + args.global_seed 
     torch.manual_seed(seed)
+    
+    # seeds for sampling
+    args.seeds = [i for i in range(config.eval.fid_sample_size)]
+    mprint(f'Sample size for FID: {len(args.seeds)}')
+
     enable_amp = not args.no_amp
     mprint(f"enable_amp: {enable_amp}, TF32: {config.train.tf32}")
     # Select batch size per GPU
@@ -190,12 +197,10 @@ def train_loop(args):
             generate_with_net(args, ema, device)
             dist.barrier()
 
-            # NO FID for now
-            # fid = calc(args.outdir, config.eval.ref_path, args.num_expected, args.global_seed, args.fid_batch_size)
-            # mprint(f"time for fid calc: {time() - start_time}")
-            # if rank == 0 and args.use_wandb:
-            #     wandb.log({f'fid': fid}, step=train_steps_start)
-            # dist.barrier()
+            if rank == 0:
+                fid = calculate_fid_given_paths([args.outdir, config.eval.ref_path], config.eval.batchsize, device, 2048, args.num_workers)
+                print(fid)
+            dist.barrier()
 
     model = DDP(model.to(device), device_ids=[device])
 
@@ -308,12 +313,14 @@ def train_loop(args):
                     os.makedirs(args.outdir, exist_ok=True)
                     generate_with_net(args, ema, device, vae)
                     dist.barrier()
-                    # for now no FID scoring
-                    # fid = calc(args.outdir, args.ref_path, args.num_expected, args.global_seed, args.fid_batch_size) 
-                    # mprint(f"time for fid calc: {time() - start_time}, fid: {fid}")
-                    # if rank == 0 and args.use_wandb:
-                    #     wandb.log({f'fid': fid}, step=train_steps)
-                    # dist.barrier()
+
+                    # calculate fid
+                    if rank == 0:
+                        fid = calculate_fid_given_paths([args.outdir, config.eval.ref_path], config.eval.batchsize, device, 2048, args.num_workers)
+                        print('FID: ', fid)
+                        tensorboard_logger.add_scalar('image_metric/FID', fid, train_steps)
+                    dist.barrier()
+
                 start_time = time()
 
             pbar.set_description(f'epoch {epoch}, batch loss: {loss_batch}, total steps: {train_steps}')
@@ -355,7 +362,7 @@ if __name__ == '__main__':
 
     # sampling
     parser.add_argument('--enable_eval', action='store_true', help='enable fid calc during training')
-    parser.add_argument('--seeds', type=parse_int_list, default='0-15', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'
+    parser.add_argument('--seeds', type=parse_int_list, default='0-3999', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'& I'm changing this in the actual run to give based of FID sample size in config
     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
     parser.add_argument('--max_batch_size', type=int, default=128, help='Maximum batch size per GPU during sampling')
@@ -371,7 +378,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
 
     parser.add_argument('--ref_path', type=str, default='assets/fid_stats/VIRTUAL_imagenet256_labeled.npz', help='Dataset reference statistics')
-    parser.add_argument('--num_expected', type=int, default=16, help='Number of images to use') # default=50000
+    parser.add_argument('--num_expected', type=int, default=4000, help='Number of images to use') # default=50000
     parser.add_argument('--fid_batch_size', type=int, default=256, help='Maximum batch size per GPU per GPU')
 
     args = parser.parse_args()

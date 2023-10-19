@@ -42,7 +42,7 @@ if __name__ == '__main__':
     batch_size = 16
     inception_features = 2048
 
-    in_dataset = 'data/MM_CelebA_HQ/images/faces'
-    out_file = 'data/MM_CelebA_HQ/all_fid_ref.npz'
+    in_dataset = 'data/MM_CelebA_HQ/test/faces'
+    out_file = 'data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz'
     
     create_ref(in_dataset, out_file, batch_size, inception_features, device, num_workers)

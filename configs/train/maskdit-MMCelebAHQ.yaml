@@ -4,7 +4,7 @@ data:
   resolution: 256
   num_channels: 3
   random_flip: True
-  root: data/MM_CelebA_HQ/images
+  root: data/MM_CelebA_HQ/train
   feat_path: None
 
 model:
@@ -17,7 +17,6 @@ model:
   ext_feature_dim: 0
   pad_cls_token: False
   mask_ratio: 0.5
-
   mask_ratio_fn: constant
   mask_ratio_min: 0
   mae_loss_coef: 0.1
@@ -29,7 +28,7 @@ train:
   amp: True
   batchsize: 128   # batchsize per GPU
   grad_accum: 1
-  epochs: 2800
+  epochs: 10_000
   lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
@@ -37,7 +36,8 @@ train:
 
 eval: # FID evaluation
   batchsize: 50
-  ref_path: assets/fid_stats/VIRTUAL_imagenet256_labeled.npz
+  ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
+  fid_sample_size: 4000 # testset size
 
 log:
   log_every: 50

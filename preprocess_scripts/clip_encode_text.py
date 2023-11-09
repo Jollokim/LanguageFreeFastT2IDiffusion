@@ -13,7 +13,7 @@ def main():
     # test(**{'x': 1, 'y': 2})
 
     descriptions_dir = 'data/MM_CelebA_HQ/descriptions'
-    out_npz = 'data/MM_CelebA_HQ/clip_eoncoded_text.npz'
+    out_npz = 'data/MM_CelebA_HQ/clip_encoded_text.npz'
 
     description_files = os.listdir(descriptions_dir)
     description_files = sorted([int(file[:file.index('.txt')]) for file in description_files])
@@ -45,7 +45,7 @@ def main():
     npz = np.load(out_npz)
 
     print(npz.files)
-    print(npz[npz.files[0]].shape)
+    print(npz['0'].shape)
 
 
         

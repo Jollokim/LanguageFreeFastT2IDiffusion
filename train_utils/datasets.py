@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torchvision.datasets import ImageFolder, VisionDataset
+from torchvision import transforms
 
 
 
@@ -61,17 +62,19 @@ def imagenet_lmdb_dataset(
     train_data = imagenet_lmdb_dataset(traindir, transform=train_transform)
     valid_data = imagenet_lmdb_dataset(validdir, transform=val_transform)
     """
-    # some issue here with loading data I recon
+
     if root.endswith('/'):
         root = root[:-1]
     pt_path = os.path.join(
         root + '_faster_imagefolder.lmdb.pt')
     lmdb_path = os.path.join(
         root + '_faster_imagefolder.lmdb')
+    
+    # check if lmdb database exist
     if os.path.isfile(pt_path) and os.path.isdir(lmdb_path):
         print('Loading pt {} and lmdb {}'.format(pt_path, lmdb_path))
         data_set = torch.load(pt_path)
-    else:
+    else: # if not
         data_set = ImageFolder(
             root, None, None, None)
         torch.save(data_set, pt_path, pickle_protocol=4)
@@ -129,6 +132,64 @@ class ImageLMDB(VisionDataset):
         self.env = lmdb.open(self.root, readonly=True, max_readers=256, lock=False, readahead=False, meminit=False)
         self.txn = self.env.begin(write=False, buffers=True)
 
+
+################################################################################
+# Text-to-face dataset for MM-CelebA-HQ
+###############################################################################
+
+class Text2FaceDataset(VisionDataset):
+    """
+    Dataloader for MM-CelebA-HQ with clip encoded text.
+    """
+    def __init__(self, root: str, embedded_txt: str, transform=None, target_transform=None, 
+                 resolution=256, img_end='.jpg'):
+        super().__init__(root, transform=transform,
+                         target_transform=target_transform)
+        self.root: str = root
+        self.resolution: int = resolution
+        self.img_end: str = img_end
+        
+        # get all image names
+        self.ids: list[str] = [file[:file.index(img_end)] for file in os.listdir(root)]
+        
+        # key: image number, value: arr size = (10, 512), 10 descriptions encoded
+        self.embedded_txt = np.load(embedded_txt)
+    
+    def __getitem__(self, index: int):
+        path: str = f'{self.root}/{self.ids[index]}{self.img_end}'
+
+        # encoded text descriptions
+        encoded_descriptions = self.embedded_txt[str(index)]
+
+        # select one of the encoded descriptions at random
+        rand_idx = torch.randint(0, encoded_descriptions.shape[0], (1,))[0]
+        target = torch.tensor(encoded_descriptions[rand_idx])
+
+        img = Image.open(path).convert('RGB')
+        arr = center_crop_arr(img, self.resolution)
+        if self.transform is not None:
+            arr = self.transform(arr)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return arr, target
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+
+if __name__ == '__main__':
+    transform = transforms.Compose([
+        transforms.Resize(size=(256)), # for purpose of outside dataset.
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
+    ])
+
+    dataset = Text2FaceDataset('data/MM_CelebA_HQ/images/faces', 'data/MM_CelebA_HQ/clip_encoded_text.npz', transform, None)
+    arr, target = dataset.__getitem__(0)
+    
+    print(arr.shape)
+    print(target.shape)
 
 
 ################################################################################

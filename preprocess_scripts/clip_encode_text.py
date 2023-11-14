@@ -37,7 +37,10 @@ def main():
 
         np_features = text_features.detach().cpu().numpy()
 
+        print(np_features.dtype)
+
         data[str(file)] = np_features
+        break
 
 
     np.savez(out_npz, **data)
@@ -46,6 +49,7 @@ def main():
 
     print(npz.files)
     print(npz['0'].shape)
+    print(npz['0'].dtype)
 
 
         

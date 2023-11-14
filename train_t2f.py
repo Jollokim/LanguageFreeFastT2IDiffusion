@@ -228,7 +228,7 @@ def train_loop(args):
         mprint(f"Beginning epoch {epoch}...")
         pbar = tqdm(loader)
 
-        for x, y in loader:
+        for x, y in pbar:
             x = x.to(device)
             y = y.to(device)
             with torch.no_grad():

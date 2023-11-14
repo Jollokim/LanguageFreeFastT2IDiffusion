@@ -153,7 +153,7 @@ class Text2FaceDataset(VisionDataset):
         self.ids: list[str] = [file[:file.index(img_end)] for file in os.listdir(root)]
         
         # key: image number, value: arr size = (10, 512), 10 descriptions encoded
-        self.embedded_txt = np.load(embedded_txt)
+        self.embedded_txt = np.load(embedded_txt) # causes buffered reader which is not pickable
     
     def __getitem__(self, index: int):
         path: str = f'{self.root}/{self.ids[index]}{self.img_end}'
@@ -178,6 +178,8 @@ class Text2FaceDataset(VisionDataset):
 
 
 if __name__ == '__main__':
+    from tqdm import tqdm
+
     transform = transforms.Compose([
         transforms.Resize(size=(256)), # for purpose of outside dataset.
         transforms.RandomHorizontalFlip(),
@@ -190,6 +192,9 @@ if __name__ == '__main__':
     
     print(arr.shape)
     print(target.shape)
+
+    for i in tqdm(range(len(dataset))):
+        arr, target = dataset.__getitem__(i)
 
 
 ################################################################################

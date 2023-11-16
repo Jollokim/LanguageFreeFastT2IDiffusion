@@ -35,12 +35,12 @@ def main():
 
         text_features = model.encode_text(text_tokenized)
 
-        np_features = text_features.detach().cpu().numpy()
+        np_features = text_features.detach().cpu().numpy().astype(np.float64)
 
-        print(np_features.dtype)
+        # print(np_features.dtype)
 
         data[str(file)] = np_features
-        break
+        
 
 
     np.savez(out_npz, **data)

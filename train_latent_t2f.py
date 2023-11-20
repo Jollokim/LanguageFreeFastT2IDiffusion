@@ -2,6 +2,7 @@
 
 # Copyright (c) [2023] [Anima-Lab]
 
+
 import argparse
 import os.path
 from collections import OrderedDict
@@ -9,29 +10,30 @@ from copy import deepcopy
 from time import time
 from omegaconf import OmegaConf
 
-from tqdm import tqdm
+
 import torch
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DistributedSampler, DataLoader
-from torchvision import transforms
 
 from fid import calc
 from models.maskdit import Precond_models
 from train_utils.loss import Losses
-from train_utils.datasets import imagenet_lmdb_dataset
+from train_utils.datasets import LatentLMDBText2FaceDataset
 from train_utils.helper import get_mask_ratio_fn
 
 from pytorch_fid.fid_score import calculate_fid_given_paths
 
+
 from sample import generate_with_net
-from utils import dist, mprint, get_latest_ckpt, Logger, \
+from utils import dist, mprint, get_latest_ckpt, Logger, sample, \
     ddp_sync, init_processes, cleanup, \
     str2bool, parse_str_none, parse_int_list, parse_float_none
 
-from autoencoder import get_model
 
 from torch.utils.tensorboard import SummaryWriter
+
+
 
 # ------------------------------------------------------------
 # Training Helper Function
@@ -75,11 +77,6 @@ def train_loop(args):
 
     seed = args.global_rank * args.num_workers + args.global_seed 
     torch.manual_seed(seed)
-    
-    # seeds for sampling
-    args.seeds = [i for i in range(config.eval.fid_sample_size)]
-    mprint(f'Sample size for FID: {len(args.seeds)}')
-
     enable_amp = not args.no_amp
     mprint(f"enable_amp: {enable_amp}, TF32: {config.train.tf32}")
     # Select batch size per GPU
@@ -92,8 +89,8 @@ def train_loop(args):
     class_dropout_prob = config.model.class_dropout_prob
     log_every = config.log.log_every
     ckpt_every = config.log.ckpt_every
-    mask_ratio_fn = get_mask_ratio_fn(config.model.mask_ratio_fn, 
-                                      config.model.mask_ratio, config.model.mask_ratio_min)
+    
+    mask_ratio_fn = get_mask_ratio_fn(config.model.mask_ratio_fn, config.model.mask_ratio, config.model.mask_ratio_min)
 
     # Setup an experiment folder
     model_name = config.model.model_type.replace("/", "-")  # e.g., DiT-XL/2 --> DiT-XL-2 (for naming folders)
@@ -105,7 +102,7 @@ def train_loop(args):
     else:  # start a new exp path (and resume from the latest checkpoint if possible)
         cond_gen = 'cond' if config.model.num_classes else 'uncond'
         exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
-                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}{args.tag}'
+                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}{config.log.tag}'
         experiment_dir = f"{args.results_dir}/{exp_name}"
         checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
         os.makedirs(checkpoint_dir, exist_ok=True)
@@ -119,15 +116,15 @@ def train_loop(args):
         if config.log.use_tensorboard:
             tensorboard_logger = SummaryWriter(f'{experiment_dir}/tensorboard')
 
-
     # Setup dataset
-    transform = transforms.Compose([
-        transforms.Resize(size=(config.data.resolution)), # for purpose of outside dataset.
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
-    ])
-    dataset = imagenet_lmdb_dataset(config.data.root, transform=transform, resolution=config.data.resolution)
+    dataset = LatentLMDBText2FaceDataset(
+        latent_space_path=config.data.root,
+        feature_path=config.data.feat_path,
+        resolution=config.model.in_size,
+        num_channels=config.model.in_channels,
+        num_feat_per_sample=config.data.feat_per_sample,
+        feat_dim=config.data.feat_dim,
+    )
     sampler = DistributedSampler(
         dataset, num_replicas=size, rank=rank, shuffle=True, seed=args.global_seed
     )
@@ -142,11 +139,6 @@ def train_loop(args):
     steps_per_epoch = len(dataset) // global_batch_size
     mprint(f"{steps_per_epoch} steps per epoch")
 
-    # Create model:
-
-    vae = get_model(args.pretrained_path).to(device)
-    # vae = torch.compile(vae)
-    assert config.model.in_size * 8 == config.data.resolution
     model = Precond_models[config.model.precond](
         img_resolution=config.model.in_size,
         img_channels=config.model.in_channels,
@@ -154,7 +146,7 @@ def train_loop(args):
         model_type=config.model.model_type,
         use_decoder=config.model.use_decoder,
         mae_loss_coef=config.model.mae_loss_coef,
-        pad_cls_token=config.model.pad_cls_token,
+        pad_cls_token=config.model.pad_cls_token
     )
     # Note that parameter initialization is done within the model constructor
     ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
@@ -165,6 +157,7 @@ def train_loop(args):
     # Setup optimizer (we used default Adam betas=(0.9, 0.999) and a constant learning rate of 1e-4 in our paper):
     # optimizer = apex.optimizers.FusedAdam(model.parameters(), lr=config.train.lr, adam_w_mode=True, weight_decay=0)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=0)
+    
     # model = torch.compile(model)
     # ema = torch.compile(ema)
     # Load checkpoints
@@ -220,21 +213,16 @@ def train_loop(args):
     log_steps = 0
     running_loss = 0
     start_time = time()
-    label_table = torch.eye(config.model.num_classes, device=device)
     mprint(f"Training for {config.train.epochs} epochs...")
     for epoch in range(epoch_start, config.train.epochs):
         sampler.set_epoch(epoch)
         mprint(f"Beginning epoch {epoch}...")
-        pbar = tqdm(loader)
-
-        for x, y in pbar:
+        for x, cond in loader:
             x = x.to(device)
-            with torch.no_grad():
-                # map input image to latent space and normalize it. 
-                x = vae.encode(x)
-            # x = torch.randn([x.shape[0], 4, 32, 32], device=device)
-            y = label_table[y.to(device)]
+            y = cond.to(device)
 
+            # TODO: what happens here!
+            x = sample(x)
             # Accumulate gradients.
             loss_batch = 0
             model.zero_grad(set_to_none=True)
@@ -243,9 +231,10 @@ def train_loop(args):
                 with ddp_sync(model, (round_idx == num_accumulation_rounds - 1)):
                     x_ = x[round_idx * micro_batch: (round_idx + 1) * micro_batch]
                     y_ = y[round_idx * micro_batch: (round_idx + 1) * micro_batch]
+
                     if class_dropout_prob > 0:  # unconditional training with probability class_dropout_prob
                         y_ = y_ * (torch.rand([y_.shape[0], 1], device=device) >= class_dropout_prob).to(y.dtype)
-
+                    
                     with torch.autocast(device_type="cuda", enabled=enable_amp):
                         loss = loss_fn(net=model, images=x_, labels=y_, 
                                        mask_ratio=curr_mask_ratio,
@@ -254,7 +243,6 @@ def train_loop(args):
                     # loss_mean.backward()
                     scaler.scale(loss_mean).backward()
                     loss_batch += loss_mean.item()
-            
 
             # Update weights with lr warmup.
             lr_cur = config.train.lr * min(train_steps * global_batch_size / max(config.train.lr_rampup_kimg * 1000, 1e-8), 1)
@@ -280,6 +268,7 @@ def train_loop(args):
                 dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM)
                 avg_loss = avg_loss.item() / size
                 mprint(f"(step={train_steps:07d}) Train Loss: {avg_loss:.4f}, Train Steps/Sec: {steps_per_sec:.2f}")
+                
                 
                 # log loss
                 if rank == 0 and config.log.use_tensorboard:
@@ -310,19 +299,18 @@ def train_loop(args):
                     start_time = time()
                     args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps}_cfg{args.cfg_scale}')
                     os.makedirs(args.outdir, exist_ok=True)
-                    generate_with_net(args, ema, device, vae)
+                    generate_with_net(args, ema, device)
                     dist.barrier()
+                    
 
                     # calculate fid
                     if rank == 0:
                         fid = calculate_fid_given_paths([args.outdir, config.eval.ref_path], config.eval.batchsize, device, 2048, args.num_workers)
                         print('FID: ', fid)
                         tensorboard_logger.add_scalar('image_metric/FID', fid, train_steps)
+
                     dist.barrier()
-
                 start_time = time()
-
-            pbar.set_description(f'epoch {epoch}, batch loss: {loss_batch}, total steps: {train_steps}')
                 
     cleanup()
     if rank == 0:
@@ -342,31 +330,28 @@ if __name__ == '__main__':
     parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
     parser.add_argument('--master_port', type=str, default='6020', help='address for master')
 
+
     # training
-    parser.add_argument("--feat_path", type=str, default='')
     parser.add_argument("--results_dir", type=str, default="results")
     parser.add_argument("--ckpt_path", type=parse_str_none, default=None)
-
-    parser.add_argument('--xflip', action='store_true', help='enable xflip for data')
 
     parser.add_argument("--global_seed", type=int, default=0)
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument('--no_amp', action='store_true', help="Disable automatic mixed precision.")
 
-    parser.add_argument("--log_every", type=int, default=100)
-    parser.add_argument("--ckpt_every", type=int, default=50_000)
+    parser.add_argument("--use_wandb", action='store_true', help='enable wandb logging')
     parser.add_argument("--use_ckpt_path", type=str2bool, default=True)
     parser.add_argument("--use_strict_load", type=str2bool, default=True)
     parser.add_argument("--tag", type=str, default='')
 
     # sampling
     parser.add_argument('--enable_eval', action='store_true', help='enable fid calc during training')
-    parser.add_argument('--seeds', type=parse_int_list, default='0-3999', help='Random seeds (e.g. 1,2,5-10)') # default='0-49999'& I'm changing this in the actual run to give based of FID sample size in config
+    parser.add_argument('--seeds', type=parse_int_list, default='0-49999', help='Random seeds (e.g. 1,2,5-10)')
     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
-    parser.add_argument('--max_batch_size', type=int, default=128, help='Maximum batch size per GPU during sampling')
+    parser.add_argument('--max_batch_size', type=int, default=50, help='Maximum batch size per GPU during sampling, must be a factor of 50k if torch.compile is used')
 
-    parser.add_argument("--cfg_scale", type=parse_float_none, default=4, help='None = no guidance, by default = 4.0') # default=None
+    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
 
     parser.add_argument('--num_steps', type=int, default=40, help='Number of sampling steps')
     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
@@ -374,18 +359,17 @@ if __name__ == '__main__':
     parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'], help='Ablate ODE solver')
     parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'], help='Ablate noise schedule sigma(t)')
     parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
-    parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
+    parser.add_argument('--pretrained_path', type=str, default='/diffusion_ws/ViT_Diffusion/assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
 
-    parser.add_argument('--ref_path', type=str, default='assets/fid_stats/VIRTUAL_imagenet256_labeled.npz', help='Dataset reference statistics')
-    parser.add_argument('--num_expected', type=int, default=4000, help='Number of images to use') # default=50000
-    parser.add_argument('--fid_batch_size', type=int, default=256, help='Maximum batch size per GPU per GPU')
+    parser.add_argument('--ref_path', type=str, default='/diffusion_ws/ViT_Diffusion/assets/fid_stats/fid_stats_imagenet256_guided_diffusion.npz', help='Dataset reference statistics')
+    parser.add_argument('--num_expected', type=int, default=50000, help='Number of images to use')
+    parser.add_argument('--fid_batch_size', type=int, default=64, help='Maximum batch size per GPU')
 
     args = parser.parse_args()
     args.global_size = args.num_proc_node * args.num_process_per_node
     size = args.num_process_per_node
     
     torch.backends.cudnn.benchmark = True
-    mp.set_start_method('spawn', force=True)
     if size > 1:
         processes = []
         for rank in range(size):

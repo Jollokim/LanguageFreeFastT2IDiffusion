@@ -19,7 +19,7 @@ from train_utils.datasets import center_crop_arr
 def get_image_transform(resolution: int = 256):
     return transforms.Compose([
         transforms.Resize(size=(resolution)), # for purpose of outside dataset.
-        transforms.RandomHorizontalFlip(),
+        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
     ])

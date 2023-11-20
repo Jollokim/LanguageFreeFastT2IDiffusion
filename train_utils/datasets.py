@@ -139,7 +139,7 @@ class ImageLMDB(VisionDataset):
 
 class Text2FaceDataset(VisionDataset):
     """
-    Dataloader for MM-CelebA-HQ with clip encoded text.
+    Dataloader for MM-CelebA-HQ with clip encoded text. NOTE: Doesn't work with current multi GPU procedure.
     """
     def __init__(self, root: str, embedded_txt: str, transform=None, target_transform=None, 
                  resolution=256, img_end='.jpg'):
@@ -178,23 +178,24 @@ class Text2FaceDataset(VisionDataset):
 
 
 if __name__ == '__main__':
-    from tqdm import tqdm
+    pass
+    # from tqdm import tqdm
 
-    transform = transforms.Compose([
-        transforms.Resize(size=(256)), # for purpose of outside dataset.
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
-    ])
+    # transform = transforms.Compose([
+    #     transforms.Resize(size=(256)), # for purpose of outside dataset.
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True),
+    # ])
 
-    dataset = Text2FaceDataset('data/MM_CelebA_HQ/images/faces', 'data/MM_CelebA_HQ/clip_encoded_text.npz', transform, None)
-    arr, target = dataset.__getitem__(0)
+    # dataset = Text2FaceDataset('data/MM_CelebA_HQ/images/faces', 'data/MM_CelebA_HQ/clip_encoded_text.npz', transform, None)
+    # arr, target = dataset.__getitem__(0)
     
-    print(arr.shape)
-    print(target.shape)
+    # print(arr.shape)
+    # print(target.shape)
 
-    for i in tqdm(range(len(dataset))):
-        arr, target = dataset.__getitem__(i)
+    # for i in tqdm(range(len(dataset))):
+    #     arr, target = dataset.__getitem__(i)
 
 
 ################################################################################
@@ -369,6 +370,119 @@ class ImageNetLatentDataset(Dataset):
         finally:
             self.env = None
             self.feat_env = None
+
+
+################################################################################
+# MM-CELEBA-HQ - LMDB - latent space
+###############################################################################
+
+
+class LatentLMDBText2FaceDataset(VisionDataset):
+    """
+    Dataloader for MM-CelebA-HQ with clip encoded text.
+    """
+    def __init__(self, latent_space_path: str, feature_path: str=None, transform=None, target_transform=None, 
+                 resolution=32, num_channels=4, num_feat_per_sample=None, feat_dim=512):
+        super().__init__(latent_space_path, feature_path, transform=transform,
+                         target_transform=target_transform)
+        self._latent_space_path: str = latent_space_path
+        self._feature_path: int = feature_path
+
+        self.resolution = resolution
+        self.num_channels = num_channels
+
+        # read z lmdb
+        self._open_lmdb_latent_space()
+
+        # read features lmdb
+        if feature_path is not None:
+            self._open_lmdb_feature()
+            
+            self.num_feat_per_sample = int.from_bytes(
+            self.feature_txn.get(
+                'n_features'.encode('utf-8')),
+                'big'
+            )
+            self.feat_dim = feat_dim
+
+        self.length = int.from_bytes(
+            self.latent_txn.get('length'.encode('utf-8')),
+            'big'
+        )
+    
+        print('dataset size:', self.length)
+        print('num features per sample', self.num_feat_per_sample)
+
+    
+    def __getitem__(self, index: int):
+        z_bi = self.latent_txn.get(f'z-{index}'.encode('utf-8'))
+        z = np.frombuffer(z_bi, dtype=np.float32).reshape((self.num_channels, self.resolution, self.resolution)).copy()
+
+        if self._feature_path is not None:
+            rand_idx = np.random.randint(self.num_feat_per_sample, dtype=int)
+            cond_bi = self.feature_txn.get(f'y-{index}-{rand_idx}'.encode('utf-8'))
+            cond = np.frombuffer(cond_bi, dtype=np.float32).reshape([self.feat_dim]).copy()
+        else:
+            cond = None
+
+        return z, cond
+
+
+    def __len__(self) -> int:
+        return self.length
+    
+
+    def _open_lmdb_latent_space(self):
+        self.latent_env = lmdb.open(self._latent_space_path, readonly=True, lock=False, create=False)
+        self.latent_txn = self.latent_env.begin(write=False)
+
+    def _open_lmdb_feature(self):
+        self.feature_env = lmdb.open(self._feature_path, readonly=True, lock=False, create=False)
+        self.feature_txn = self.feature_env.begin(write=False)
+
+
+    def __del__(self):
+        try:
+            self.close()
+        except:
+            pass
+
+    def close(self):
+        try:
+            if self.latent_env is not None:
+                self.latent_env.close()
+            if self.feature_env is not None:
+                self.feature_env.close()
+        finally:
+            self.latent_env = None
+            self.feature_env = None
+
+
+if __name__ == '__main__':
+    from tqdm import tqdm
+    from torch.utils.data import DataLoader
+
+    dataset = LatentLMDBText2FaceDataset(
+        'data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z',
+        'data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip'
+    )
+    
+    loader = DataLoader(
+        dataset, batch_size=1, shuffle=False, num_workers=1,
+        pin_memory=True, persistent_workers=True,
+        drop_last=True
+    )
+
+    z, cond = dataset.__getitem__(0)
+
+    print('z', z.shape, z.dtype)
+    print('cond', cond.shape, cond.dtype)
+
+
+    for z, cond in tqdm(loader):
+        print(z.shape, z.dtype)
+        print(cond.shape, cond.dtype)
+        break
 
 
 # ----------------------------------------------------------------------------

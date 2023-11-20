@@ -35,7 +35,7 @@ def main():
 
         text_features = model.encode_text(text_tokenized)
 
-        np_features = text_features.detach().cpu().numpy().astype(np.float64)
+        np_features = text_features.detach().cpu().numpy().astype(np.float32)
 
         # print(np_features.dtype)
 

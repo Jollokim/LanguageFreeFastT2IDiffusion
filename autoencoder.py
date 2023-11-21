@@ -485,12 +485,12 @@ def main():
     import os
     from PIL import Image
 
-    model = get_model('assets/stable-diffusion/autoencoder_kl.pth')
+    model = get_model('assets/stable_diffusion/autoencoder_kl.pth')
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
 
     scale_factor = 0.18215
-    T = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(256), transforms.ToTensor()])
+    T = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(256), transforms.ToTensor()]) # TODO: try this transform in the latent lmdb
     path = 'imgs'
     fnames = os.listdir(path)
     for fname in fnames:

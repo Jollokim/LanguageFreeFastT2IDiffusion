@@ -25,7 +25,7 @@ from train_utils.helper import get_mask_ratio_fn
 from pytorch_fid.fid_score import calculate_fid_given_paths
 
 
-from sample import generate_with_net
+from sample import generate_with_net_t2f
 from utils import dist, mprint, get_latest_ckpt, Logger, sample, \
     ddp_sync, init_processes, cleanup, \
     str2bool, parse_str_none, parse_int_list, parse_float_none
@@ -77,6 +77,11 @@ def train_loop(args):
 
     seed = args.global_rank * args.num_workers + args.global_seed 
     torch.manual_seed(seed)
+
+    # seeds for sampling
+    args.seeds = [i for i in range(config.eval.fid_sample_size)]
+    mprint(f'Sample size for FID: {len(args.seeds)}')
+
     enable_amp = not args.no_amp
     mprint(f"enable_amp: {enable_amp}, TF32: {config.train.tf32}")
     # Select batch size per GPU
@@ -122,7 +127,6 @@ def train_loop(args):
         feature_path=config.data.feat_path,
         resolution=config.model.in_size,
         num_channels=config.model.in_channels,
-        num_feat_per_sample=config.data.feat_per_sample,
         feat_dim=config.data.feat_dim,
     )
     sampler = DistributedSampler(
@@ -186,7 +190,7 @@ def train_loop(args):
             start_time = time()
             args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps_start}_cfg{args.cfg_scale}')
             os.makedirs(args.outdir, exist_ok=True)
-            generate_with_net(args, ema, device)
+            generate_with_net_t2f(args, config, ema, device)
             dist.barrier()
 
             if rank == 0:
@@ -297,7 +301,7 @@ def train_loop(args):
                     start_time = time()
                     args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps}_cfg{args.cfg_scale}')
                     os.makedirs(args.outdir, exist_ok=True)
-                    generate_with_net(args, ema, device)
+                    generate_with_net_t2f(args, config, ema, device)
                     dist.barrier()
                     
 
@@ -357,7 +361,7 @@ if __name__ == '__main__':
     parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'], help='Ablate ODE solver')
     parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'], help='Ablate noise schedule sigma(t)')
     parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
-    parser.add_argument('--pretrained_path', type=str, default='/diffusion_ws/ViT_Diffusion/assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
+    parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth', help='Autoencoder ckpt')
 
     parser.add_argument('--ref_path', type=str, default='/diffusion_ws/ViT_Diffusion/assets/fid_stats/fid_stats_imagenet256_guided_diffusion.npz', help='Dataset reference statistics')
     parser.add_argument('--num_expected', type=int, default=50000, help='Number of images to use')

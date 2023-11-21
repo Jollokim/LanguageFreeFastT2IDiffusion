@@ -302,6 +302,135 @@ def generate_with_net(args, net, device, vae=None, feat_path=None, ext_feature_d
                 PIL.Image.fromarray(image_np, 'RGB').save(image_path)
 
 
+@torch.no_grad()
+def generate_with_net_t2f(args, config, net, device, vae=None, feat_path=None, ext_feature_dim=0):
+    rank = args.global_rank
+    size = args.global_size
+    seeds = args.seeds
+    num_batches = ((len(seeds) - 1) // (args.max_batch_size * size) + 1) * size
+    all_batches = torch.as_tensor(seeds).tensor_split(num_batches)
+    rank_batches = all_batches[rank:: size]
+
+    net.eval()
+
+    # Setup sampler
+    sampler_kwargs = dict(num_steps=args.num_steps, S_churn=args.S_churn,
+                          solver=args.solver, discretization=args.discretization,
+                          schedule=args.schedule, scaling=args.scaling)
+    sampler_kwargs = {key: value for key, value in sampler_kwargs.items() if value is not None}
+    have_ablation_kwargs = any(x in sampler_kwargs for x in ['solver', 'discretization', 'schedule', 'scaling'])
+    sampler_fn = ablation_sampler if have_ablation_kwargs else edm_sampler
+    mprint(f"sampler_kwargs: {sampler_kwargs}, \nsampler fn: {sampler_fn.__name__}")
+    # Setup autoencoder (if not present in parameters)
+    if vae is None:
+        vae = autoencoder.get_model(args.pretrained_path).to(device)
+
+    # generate images
+    mprint(f'Generating {len(seeds)} images to "{args.outdir}"...')
+    for batch_seeds in tqdm(rank_batches, unit='batch', disable=(rank != 0)):
+        dist.barrier()
+        batch_size = len(batch_seeds)
+        if batch_size == 0:
+            continue
+
+        # Pick latents and labels.
+        rnd = StackedRandomGenerator(device, batch_seeds)
+        latents = rnd.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
+        
+        # TODO: retrieve a set of 
+        class_labels = retrieve_t2f_features(
+            batch_size,
+            config.data.feat_path,
+            config.data.feat_dim,
+            device,
+            rnd
+        )
+
+        feat = None        
+
+        # Generate images.
+        def recur_decode(z):
+            try:
+                return vae.decode(z)
+            except:  # reduce the batch for vae decoder but two forward passes when OOM happens occasionally
+                assert z.shape[2] % 2 == 0
+                z1, z2 = z.tensor_split(2)
+                return torch.cat([recur_decode(z1), recur_decode(z2)])
+
+        with torch.no_grad():
+            z = sampler_fn(net, latents.float(), class_labels.float(), randn_like=rnd.randn_like,
+                           cfg_scale=args.cfg_scale, feat=feat, **sampler_kwargs).float()
+            images = recur_decode(z)
+            
+        # Save images.
+        images_np = images.add_(1).mul(127.5).clamp_(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+        # images_np = (images * 127.5 + 128).clip(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+        for seed, image_np in zip(batch_seeds, images_np):
+            image_dir = os.path.join(args.outdir, f'{seed - seed % 1000:06d}') if args.subdirs else args.outdir
+            os.makedirs(image_dir, exist_ok=True)
+            image_path = os.path.join(image_dir, f'{seed:06d}.png')
+            if image_np.shape[2] == 1:
+                PIL.Image.fromarray(image_np[:, :, 0], 'L').save(image_path)
+            else:
+                PIL.Image.fromarray(image_np, 'RGB').save(image_path)
+
+
+
+def retrieve_t2f_features(batch_size, feat_path, feat_dim, device, rnd: StackedRandomGenerator):
+    env = lmdb.open(feat_path, readonly=True, lock=False, create=False)
+
+    with env.begin(write=False) as txn:
+        length = int.from_bytes(
+            txn.get('length'.encode('utf-8')),
+            'big'
+        )
+        n_features = int.from_bytes(txn.get(
+            'n_features'.encode('utf-8')),
+            'big'
+        )
+
+        # picking random sample and random description
+        batch_sample_idx = rnd.randint(length, size=[batch_size, 1])
+        batch_descr_idx = rnd.randint(n_features, size=[batch_size, 1])
+
+        features = []
+    
+        for sample_idx, descr_idx in zip(batch_sample_idx, batch_descr_idx):
+            f_bi = txn.get(f'y-{sample_idx.item()}-{descr_idx.item()}'.encode('utf-8'))
+            f = np.frombuffer(f_bi, dtype=np.float32).reshape([feat_dim]).copy()
+
+            features.append(f)
+
+        features = torch.from_numpy(np.stack(features)).to(device)
+
+    return features
+
+
+        
+
+if __name__ == '__main__':
+    batch_size = 5
+    seeds = [i for i in range(batch_size)]
+    
+    device = 'cpu'
+    rnd = StackedRandomGenerator(device, seeds)
+    
+    feat_path = 'data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip'
+    feat_dim = 512
+
+
+    features = retrieve_t2f_features(
+        batch_size=batch_size,
+        feat_path=feat_path,
+        feat_dim=feat_dim,
+        device=device,
+        rnd=rnd
+    )
+
+    print(features.shape)
+    
+
+
 def generate(args):
     device = torch.device("cuda")
 
@@ -337,67 +466,67 @@ def generate(args):
         logger.close()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser('sampling parameters')
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser('sampling parameters')
 
-    # ddp
-    parser.add_argument('--num_proc_node', type=int, default=1, help='The number of nodes in multi node env.')
-    parser.add_argument('--num_process_per_node', type=int, default=1, help='number of gpus')
-    parser.add_argument('--node_rank', type=int, default=0, help='The index of node.')
-    parser.add_argument('--local_rank', type=int, default=0, help='rank of process in the node')
-    parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
+#     # ddp
+#     parser.add_argument('--num_proc_node', type=int, default=1, help='The number of nodes in multi node env.')
+#     parser.add_argument('--num_process_per_node', type=int, default=1, help='number of gpus')
+#     parser.add_argument('--node_rank', type=int, default=0, help='The index of node.')
+#     parser.add_argument('--local_rank', type=int, default=0, help='rank of process in the node')
+#     parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
 
-    # sampling
-    parser.add_argument("--feat_path", type=str, default='')
-    parser.add_argument("--ext_feature_dim", type=int, default=0)
-    parser.add_argument('--ckpt_path', type=str, required=True, help='Network pickle filename')
-    parser.add_argument('--outdir', type=str, required=True, help='sampling results save filename')
-    parser.add_argument('--seeds', type=parse_int_list, default='0-63', help='Random seeds (e.g. 1,2,5-10)')
-    parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
-    parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
-    parser.add_argument('--max_batch_size', type=int, default=64, help='Maximum batch size per GPU')
+#     # sampling
+#     parser.add_argument("--feat_path", type=str, default='')
+#     parser.add_argument("--ext_feature_dim", type=int, default=0)
+#     parser.add_argument('--ckpt_path', type=str, required=True, help='Network pickle filename')
+#     parser.add_argument('--outdir', type=str, required=True, help='sampling results save filename')
+#     parser.add_argument('--seeds', type=parse_int_list, default='0-63', help='Random seeds (e.g. 1,2,5-10)')
+#     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
+#     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
+#     parser.add_argument('--max_batch_size', type=int, default=64, help='Maximum batch size per GPU')
 
-    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
+#     parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
 
-    parser.add_argument('--num_steps', type=int, default=18, help='Number of sampling steps')
-    parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
-    parser.add_argument('--solver', type=str, default=None, choices=['euler', 'heun'], help='Ablate ODE solver')
-    parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'],
-                        help='Ablate ODE solver')
-    parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'],
-                        help='Ablate noise schedule sigma(t)')
-    parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
-    parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth',
-                        help='Autoencoder ckpt')
+#     parser.add_argument('--num_steps', type=int, default=18, help='Number of sampling steps')
+#     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
+#     parser.add_argument('--solver', type=str, default=None, choices=['euler', 'heun'], help='Ablate ODE solver')
+#     parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'],
+#                         help='Ablate ODE solver')
+#     parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'],
+#                         help='Ablate noise schedule sigma(t)')
+#     parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
+#     parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth',
+#                         help='Autoencoder ckpt')
 
-    # model
-    parser.add_argument("--image_size", type=int, default=32)
-    parser.add_argument("--image_channels", type=int, default=4)
-    parser.add_argument("--num_classes", type=int, default=1000, help='0 means unconditional')
-    parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
-    parser.add_argument('--precond', type=str, choices=['vp', 've', 'edm'], default='edm', help='precond train & loss')
-    parser.add_argument("--use_decoder", type=str2bool, default=False)
-    parser.add_argument("--pad_cls_token", type=str2bool, default=False)
-    parser.add_argument('--mae_loss_coef', type=float, default=0, help='0 means no MAE loss')
-    parser.add_argument('--sample_mode', type=str, default='rand_full', help='[rand_full, rand_repeat]')
+#     # model
+#     parser.add_argument("--image_size", type=int, default=32)
+#     parser.add_argument("--image_channels", type=int, default=4)
+#     parser.add_argument("--num_classes", type=int, default=1000, help='0 means unconditional')
+#     parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
+#     parser.add_argument('--precond', type=str, choices=['vp', 've', 'edm'], default='edm', help='precond train & loss')
+#     parser.add_argument("--use_decoder", type=str2bool, default=False)
+#     parser.add_argument("--pad_cls_token", type=str2bool, default=False)
+#     parser.add_argument('--mae_loss_coef', type=float, default=0, help='0 means no MAE loss')
+#     parser.add_argument('--sample_mode', type=str, default='rand_full', help='[rand_full, rand_repeat]')
 
-    args = parser.parse_args()
-    args.global_size = args.num_proc_node * args.num_process_per_node
-    size = args.num_process_per_node
+#     args = parser.parse_args()
+#     args.global_size = args.num_proc_node * args.num_process_per_node
+#     size = args.num_process_per_node
 
-    if size > 1:
-        processes = []
-        for rank in range(size):
-            args.local_rank = rank
-            args.global_rank = rank + args.node_rank * args.num_process_per_node
-            p = Process(target=init_processes, args=(generate, args))
-            p.start()
-            processes.append(p)
+#     if size > 1:
+#         processes = []
+#         for rank in range(size):
+#             args.local_rank = rank
+#             args.global_rank = rank + args.node_rank * args.num_process_per_node
+#             p = Process(target=init_processes, args=(generate, args))
+#             p.start()
+#             processes.append(p)
 
-        for p in processes:
-            p.join()
-    else:
-        print('Single GPU run')
-        assert args.global_size == 1 and args.local_rank == 0
-        args.global_rank = 0
-        init_processes(generate, args)
+#         for p in processes:
+#             p.join()
+#     else:
+#         print('Single GPU run')
+#         assert args.global_size == 1 and args.local_rank == 0
+#         args.global_rank = 0
+#         init_processes(generate, args)

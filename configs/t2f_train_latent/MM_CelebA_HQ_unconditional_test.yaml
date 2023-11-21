@@ -6,7 +6,6 @@ data:
   random_flip: True
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
   feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip
-  feat_per_sample: 10
   feat_dim: 512
 
 model:

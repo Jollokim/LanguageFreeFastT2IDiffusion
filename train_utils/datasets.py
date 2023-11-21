@@ -382,7 +382,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
     Dataloader for MM-CelebA-HQ with clip encoded text.
     """
     def __init__(self, latent_space_path: str, feature_path: str=None, transform=None, target_transform=None, 
-                 resolution=32, num_channels=4, num_feat_per_sample=None, feat_dim=512):
+                 resolution=32, num_channels=4, feat_dim=512):
         super().__init__(latent_space_path, feature_path, transform=transform,
                          target_transform=target_transform)
         self._latent_space_path: str = latent_space_path

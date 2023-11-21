@@ -220,9 +220,7 @@ def train_loop(args):
         for x, cond in loader:
             x = x.to(device)
             y = cond.to(device)
-
-            # TODO: what happens here!
-            x = sample(x)
+            
             # Accumulate gradients.
             loss_batch = 0
             model.zero_grad(set_to_none=True)

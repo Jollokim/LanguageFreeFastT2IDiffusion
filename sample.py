@@ -390,8 +390,8 @@ def retrieve_t2f_features(batch_size, feat_path, feat_dim, device, rnd: StackedR
         )
 
         # picking random sample and random description
-        batch_sample_idx = rnd.randint(length, size=[batch_size, 1])
-        batch_descr_idx = rnd.randint(n_features, size=[batch_size, 1])
+        batch_sample_idx = rnd.randint(length, size=[batch_size, 1], device=device)
+        batch_descr_idx = rnd.randint(n_features, size=[batch_size, 1], device=device)
 
         features = []
     

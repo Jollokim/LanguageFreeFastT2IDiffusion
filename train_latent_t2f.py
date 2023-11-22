@@ -33,6 +33,8 @@ from utils import dist, mprint, get_latest_ckpt, Logger, sample, \
 
 from torch.utils.tensorboard import SummaryWriter
 
+from tqdm import tqdm
+
 
 
 # ------------------------------------------------------------
@@ -105,9 +107,9 @@ def train_loop(args):
         experiment_dir = os.path.dirname(checkpoint_dir)
         exp_name = os.path.basename(experiment_dir)
     else:  # start a new exp path (and resume from the latest checkpoint if possible)
-        cond_gen = 'cond' if config.model.num_classes else 'uncond'
+        cond_gen = 't2f' if class_dropout_prob == 0 else 'unconditional'
         exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
-                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}{config.log.tag}'
+                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
         experiment_dir = f"{args.results_dir}/{exp_name}"
         checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
         os.makedirs(checkpoint_dir, exist_ok=True)
@@ -221,7 +223,9 @@ def train_loop(args):
     for epoch in range(epoch_start, config.train.epochs):
         sampler.set_epoch(epoch)
         mprint(f"Beginning epoch {epoch}...")
-        for x, cond in loader:
+        pbar = tqdm(loader)
+
+        for x, cond in pbar:
             x = x.to(device)
             y = cond.to(device)
             
@@ -313,6 +317,9 @@ def train_loop(args):
 
                     dist.barrier()
                 start_time = time()
+
+            pbar.set_description(f'epoch {epoch}, batch loss: {loss_batch}, total steps: {train_steps}')
+
                 
     cleanup()
     if rank == 0:
@@ -353,7 +360,7 @@ if __name__ == '__main__':
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
     parser.add_argument('--max_batch_size', type=int, default=50, help='Maximum batch size per GPU during sampling, must be a factor of 50k if torch.compile is used')
 
-    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
+    parser.add_argument("--cfg_scale", type=parse_float_none, default=4, help='None = no guidance, by default = 4.0')
 
     parser.add_argument('--num_steps', type=int, default=40, help='Number of sampling steps')
     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')

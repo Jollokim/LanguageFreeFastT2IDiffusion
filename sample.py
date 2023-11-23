@@ -466,67 +466,67 @@ def generate(args):
         logger.close()
 
 
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser('sampling parameters')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('sampling parameters')
 
-#     # ddp
-#     parser.add_argument('--num_proc_node', type=int, default=1, help='The number of nodes in multi node env.')
-#     parser.add_argument('--num_process_per_node', type=int, default=1, help='number of gpus')
-#     parser.add_argument('--node_rank', type=int, default=0, help='The index of node.')
-#     parser.add_argument('--local_rank', type=int, default=0, help='rank of process in the node')
-#     parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
+    # ddp
+    parser.add_argument('--num_proc_node', type=int, default=1, help='The number of nodes in multi node env.')
+    parser.add_argument('--num_process_per_node', type=int, default=1, help='number of gpus')
+    parser.add_argument('--node_rank', type=int, default=0, help='The index of node.')
+    parser.add_argument('--local_rank', type=int, default=0, help='rank of process in the node')
+    parser.add_argument('--master_address', type=str, default='localhost', help='address for master')
 
-#     # sampling
-#     parser.add_argument("--feat_path", type=str, default='')
-#     parser.add_argument("--ext_feature_dim", type=int, default=0)
-#     parser.add_argument('--ckpt_path', type=str, required=True, help='Network pickle filename')
-#     parser.add_argument('--outdir', type=str, required=True, help='sampling results save filename')
-#     parser.add_argument('--seeds', type=parse_int_list, default='0-63', help='Random seeds (e.g. 1,2,5-10)')
-#     parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
-#     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
-#     parser.add_argument('--max_batch_size', type=int, default=64, help='Maximum batch size per GPU')
+    # sampling
+    parser.add_argument("--feat_path", type=str, default='')
+    parser.add_argument("--ext_feature_dim", type=int, default=0)
+    parser.add_argument('--ckpt_path', type=str, required=True, help='Network pickle filename')
+    parser.add_argument('--outdir', type=str, required=True, help='sampling results save filename')
+    parser.add_argument('--seeds', type=parse_int_list, default='0-63', help='Random seeds (e.g. 1,2,5-10)')
+    parser.add_argument('--subdirs', action='store_true', help='Create subdirectory for every 1000 seeds')
+    parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
+    parser.add_argument('--max_batch_size', type=int, default=64, help='Maximum batch size per GPU')
 
-#     parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
+    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
 
-#     parser.add_argument('--num_steps', type=int, default=18, help='Number of sampling steps')
-#     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
-#     parser.add_argument('--solver', type=str, default=None, choices=['euler', 'heun'], help='Ablate ODE solver')
-#     parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'],
-#                         help='Ablate ODE solver')
-#     parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'],
-#                         help='Ablate noise schedule sigma(t)')
-#     parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
-#     parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth',
-#                         help='Autoencoder ckpt')
+    parser.add_argument('--num_steps', type=int, default=18, help='Number of sampling steps')
+    parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')
+    parser.add_argument('--solver', type=str, default=None, choices=['euler', 'heun'], help='Ablate ODE solver')
+    parser.add_argument('--discretization', type=str, default=None, choices=['vp', 've', 'iddpm', 'edm'],
+                        help='Ablate ODE solver')
+    parser.add_argument('--schedule', type=str, default=None, choices=['vp', 've', 'linear'],
+                        help='Ablate noise schedule sigma(t)')
+    parser.add_argument('--scaling', type=str, default=None, choices=['vp', 'none'], help='Ablate signal scaling s(t)')
+    parser.add_argument('--pretrained_path', type=str, default='assets/stable_diffusion/autoencoder_kl.pth',
+                        help='Autoencoder ckpt')
 
-#     # model
-#     parser.add_argument("--image_size", type=int, default=32)
-#     parser.add_argument("--image_channels", type=int, default=4)
-#     parser.add_argument("--num_classes", type=int, default=1000, help='0 means unconditional')
-#     parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
-#     parser.add_argument('--precond', type=str, choices=['vp', 've', 'edm'], default='edm', help='precond train & loss')
-#     parser.add_argument("--use_decoder", type=str2bool, default=False)
-#     parser.add_argument("--pad_cls_token", type=str2bool, default=False)
-#     parser.add_argument('--mae_loss_coef', type=float, default=0, help='0 means no MAE loss')
-#     parser.add_argument('--sample_mode', type=str, default='rand_full', help='[rand_full, rand_repeat]')
+    # model
+    parser.add_argument("--image_size", type=int, default=32)
+    parser.add_argument("--image_channels", type=int, default=4)
+    parser.add_argument("--num_classes", type=int, default=1000, help='0 means unconditional')
+    parser.add_argument("--model_type", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
+    parser.add_argument('--precond', type=str, choices=['vp', 've', 'edm'], default='edm', help='precond train & loss')
+    parser.add_argument("--use_decoder", type=str2bool, default=False)
+    parser.add_argument("--pad_cls_token", type=str2bool, default=False)
+    parser.add_argument('--mae_loss_coef', type=float, default=0, help='0 means no MAE loss')
+    parser.add_argument('--sample_mode', type=str, default='rand_full', help='[rand_full, rand_repeat]')
 
-#     args = parser.parse_args()
-#     args.global_size = args.num_proc_node * args.num_process_per_node
-#     size = args.num_process_per_node
+    args = parser.parse_args()
+    args.global_size = args.num_proc_node * args.num_process_per_node
+    size = args.num_process_per_node
 
-#     if size > 1:
-#         processes = []
-#         for rank in range(size):
-#             args.local_rank = rank
-#             args.global_rank = rank + args.node_rank * args.num_process_per_node
-#             p = Process(target=init_processes, args=(generate, args))
-#             p.start()
-#             processes.append(p)
+    if size > 1:
+        processes = []
+        for rank in range(size):
+            args.local_rank = rank
+            args.global_rank = rank + args.node_rank * args.num_process_per_node
+            p = Process(target=init_processes, args=(generate, args))
+            p.start()
+            processes.append(p)
 
-#         for p in processes:
-#             p.join()
-#     else:
-#         print('Single GPU run')
-#         assert args.global_size == 1 and args.local_rank == 0
-#         args.global_rank = 0
-#         init_processes(generate, args)
+        for p in processes:
+            p.join()
+    else:
+        print('Single GPU run')
+        assert args.global_size == 1 and args.local_rank == 0
+        args.global_rank = 0
+        init_processes(generate, args)

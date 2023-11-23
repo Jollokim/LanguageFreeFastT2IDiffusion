@@ -192,7 +192,7 @@ def train_loop(args):
             start_time = time()
             args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps_start}_cfg{args.cfg_scale}')
             os.makedirs(args.outdir, exist_ok=True)
-            generate_with_net_t2f(args, config, ema, device)
+            generate_with_net_t2f(args, ema, device, feat_path=config.data.feat_path, feat_dim=config.data.feat_dim)
             dist.barrier()
 
             if rank == 0:
@@ -305,7 +305,7 @@ def train_loop(args):
                     start_time = time()
                     args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps}_cfg{args.cfg_scale}')
                     os.makedirs(args.outdir, exist_ok=True)
-                    generate_with_net_t2f(args, config, ema, device)
+                    generate_with_net_t2f(args, ema, device, feat_path=config.data.feat_path, feat_dim=config.data.feat_dim)
                     dist.barrier()
                     
 
@@ -360,7 +360,7 @@ if __name__ == '__main__':
     parser.add_argument('--class_idx', type=int, default=None, help='Class label  [default: random]')
     parser.add_argument('--max_batch_size', type=int, default=50, help='Maximum batch size per GPU during sampling, must be a factor of 50k if torch.compile is used')
 
-    parser.add_argument("--cfg_scale", type=parse_float_none, default=4, help='None = no guidance, by default = 4.0')
+    parser.add_argument("--cfg_scale", type=parse_float_none, default=None, help='None = no guidance, by default = 4.0')
 
     parser.add_argument('--num_steps', type=int, default=40, help='Number of sampling steps')
     parser.add_argument('--S_churn', type=int, default=0, help='Stochasticity strength')

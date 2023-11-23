@@ -303,7 +303,7 @@ def generate_with_net(args, net, device, vae=None, feat_path=None, ext_feature_d
 
 
 @torch.no_grad()
-def generate_with_net_t2f(args, config, net, device, vae=None, feat_path=None, ext_feature_dim=0):
+def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=None): #TODO: take config out of function
     rank = args.global_rank
     size = args.global_size
     seeds = args.seeds
@@ -337,11 +337,10 @@ def generate_with_net_t2f(args, config, net, device, vae=None, feat_path=None, e
         rnd = StackedRandomGenerator(device, batch_seeds)
         latents = rnd.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
         
-        # TODO: retrieve a set of 
         class_labels = retrieve_t2f_features(
             batch_size,
-            config.data.feat_path,
-            config.data.feat_dim,
+            feat_path,
+            feat_dim,
             device,
             rnd
         )

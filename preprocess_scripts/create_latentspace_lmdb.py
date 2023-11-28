@@ -146,24 +146,15 @@ def main():
     os.makedirs(lmdb_dataset_root, exist_ok=True)
     
     # feature
-    feature_npz = 'data/MM_CelebA_HQ/clip_encoded_text.npz'
-    feature_name = 'clip'
+    feature_npz = 'data/MM_CelebA_HQ/clip_encoded_img.npz'
+    feature_name = 'clip_img'
     feature_shape = (512)
     feature_dtype = np.float32
-    n_features = 10
+    n_features = 1
     
     # dataset
     dataset = 'data/MM_CelebA_HQ/images/faces'
     n_samples = 30_000
-    
-
-    # vae
-    vae_weights = 'assets/stable_diffusion/autoencoder_kl.pth'
-    vae = get_model(vae_weights)
-    z_shape = (4, 32, 32)
-    z_dtype = np.float32
-    batch_size = 64
-    device = 'cuda'
     
     # store feature vectors
     env_feature = lmdb.open(f'{lmdb_dataset_root}/{feature_name}', map_size=1_260_000_000)
@@ -174,9 +165,19 @@ def main():
     sanity_check(env_feature, feature_shape, feature_dtype, n_features=n_features)
 
 
+    quit()
+
+    # vae
+    vae_weights = 'assets/stable_diffusion/autoencoder_kl.pth'
+    vae = get_model(vae_weights)
+    z_shape = (4, 32, 32)
+    z_dtype = np.float32
+    batch_size = 64
+    device = 'cuda'
+
     # store vae image encodings
     env_z = lmdb.open(f'{lmdb_dataset_root}/z', map_size=1_260_000_000)
-    put_z(vae, env_z, dataset, batch_size)
+    put_z(vae, env_z, dataset, batch_size, device=device)
     put_single(env_z, 'length', n_samples)
 
     sanity_check(env_z, z_shape, z_dtype)

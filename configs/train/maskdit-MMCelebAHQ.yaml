@@ -20,7 +20,7 @@ model:
   mask_ratio_fn: constant
   mask_ratio_min: 0
   mae_loss_coef: 0.1
-  class_dropout_prob: 0.1 # 1 for uncoditional
+  class_dropout_prob: 0.1 # 1 for uncoditional, 0 for conditional
   self_cond: False
 
 train:

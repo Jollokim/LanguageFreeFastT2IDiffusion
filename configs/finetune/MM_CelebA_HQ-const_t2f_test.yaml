@@ -3,9 +3,8 @@ data:
   category: lmdb
   resolution: 32
   num_channels: 4
-  random_flip: True
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
   feat_dim: 512
 
 model:
@@ -17,32 +16,32 @@ model:
   use_decoder: True
   ext_feature_dim: 0
   pad_cls_token: False
-  mask_ratio: 0.5
+  mask_ratio: 0.0
   mask_ratio_fn: constant
   mask_ratio_min: 0
   mae_loss_coef: 0.1
   self_cond: False
-  class_dropout_prob: 1 # 1 for uncoditional
+  class_dropout_prob: 0 # 1 for unconditional, 0 for conditional
 
 train:
-  tf32: False
-  amp: True
+  tf32: True
+  amp: False
   batchsize: 1   # batchsize per GPU
   grad_accum: 1
-  epochs: 10_000
-  lr: 0.0001
+  epochs: 5_000
+  lr: 0.00005
   lr_rampup_kimg: 0
   xflip: False
-  max_num_steps: 2_000_000
+  max_num_steps: 1_000_000
 
 eval: # FID evaluation
-  batchsize: 1
+  batchsize: 50
   ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
-  fid_sample_size: 16 # testset size
+  fid_sample_size: 10 # testset size
 
 log:
-  log_every: 10
-  ckpt_every: 10 #12_500
-  fid_every: 10 #
+  log_every: 1
+  ckpt_every: 1
+  tag: finetune-const
   use_tensorboard: True
-  tag: test
+

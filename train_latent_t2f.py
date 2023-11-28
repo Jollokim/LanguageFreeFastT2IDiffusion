@@ -102,19 +102,21 @@ def train_loop(args):
     # Setup an experiment folder
     model_name = config.model.model_type.replace("/", "-")  # e.g., DiT-XL/2 --> DiT-XL-2 (for naming folders)
     data_name = config.data.dataset
-    if args.ckpt_path is not None and args.use_ckpt_path:  # use the existing exp path (mainly used for fine-tuning)
-        checkpoint_dir = os.path.dirname(args.ckpt_path)
-        experiment_dir = os.path.dirname(checkpoint_dir)
-        exp_name = os.path.basename(experiment_dir)
-    else:  # start a new exp path (and resume from the latest checkpoint if possible)
-        cond_gen = 't2f' if class_dropout_prob == 0 else 'unconditional'
-        exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
-                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
-        experiment_dir = f"{args.results_dir}/{exp_name}"
-        checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        if args.ckpt_path is None:
-            args.ckpt_path = get_latest_ckpt(checkpoint_dir)  # Resumes from the latest checkpoint if it exists
+    
+    cond_gen = 't2f' if class_dropout_prob == 0 else 'unconditional'
+    exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
+                f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
+    experiment_dir = f"{args.results_dir}/{exp_name}"
+    checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    
+    if args.ckpt_path is None:
+        args.ckpt_path = get_latest_ckpt(checkpoint_dir)  # Resumes from the latest checkpoint if it exists
+    
+    
+    
+    
     mprint(f"Experiment directory created at {experiment_dir}")
 
     if rank == 0:

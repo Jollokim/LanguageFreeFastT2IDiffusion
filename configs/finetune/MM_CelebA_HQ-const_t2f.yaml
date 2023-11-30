@@ -26,7 +26,7 @@ model:
 train:
   tf32: True
   amp: False
-  batchsize: 64   # batchsize per GPU
+  batchsize: 32   # batchsize per GPU (64)
   grad_accum: 1
   epochs: 5_000
   lr: 0.00005
@@ -37,7 +37,7 @@ train:
 eval: # FID evaluation
   batchsize: 50
   ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
-  fid_sample_size: 256 # testset size
+  fid_sample_size: 1024 # testset size
 
 log:
   log_every: 50

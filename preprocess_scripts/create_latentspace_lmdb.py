@@ -142,41 +142,38 @@ def sanity_check(env, shape, dtype, n_features=None):
 
 def main():
     # dataset place
-    lmdb_dataset_root = 'data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb'
+    lmdb_dataset_root = 'data/ffhq/ffhq_lmdb'
     os.makedirs(lmdb_dataset_root, exist_ok=True)
     
     # feature
-    feature_npz = 'data/MM_CelebA_HQ/clip_encoded_img.npz'
+    feature_npz = 'data/ffhq/clip_encoded_img.npz'
     feature_name = 'clip_img'
     feature_shape = (512)
     feature_dtype = np.float32
     n_features = 1
     
     # dataset
-    dataset = 'data/MM_CelebA_HQ/images/faces'
-    n_samples = 30_000
+    dataset = 'data/ffhq/images'
+    n_samples = 70_000
     
     # store feature vectors
-    env_feature = lmdb.open(f'{lmdb_dataset_root}/{feature_name}', map_size=1_260_000_000)
-    put_feature(feature_npz, n_samples, env_feature)
-    put_single(env_feature, 'length', n_samples)
-    put_single(env_feature, 'n_features', n_features)
+    env_feature = lmdb.open(f'{lmdb_dataset_root}/{feature_name}', map_size=2_520_000_000)
+    # put_feature(feature_npz, n_samples, env_feature)
+    # put_single(env_feature, 'length', n_samples)
+    # put_single(env_feature, 'n_features', n_features)
 
     sanity_check(env_feature, feature_shape, feature_dtype, n_features=n_features)
-
-
-    quit()
 
     # vae
     vae_weights = 'assets/stable_diffusion/autoencoder_kl.pth'
     vae = get_model(vae_weights)
     z_shape = (4, 32, 32)
     z_dtype = np.float32
-    batch_size = 64
+    batch_size = 10
     device = 'cuda'
 
     # store vae image encodings
-    env_z = lmdb.open(f'{lmdb_dataset_root}/z', map_size=1_260_000_000)
+    env_z = lmdb.open(f'{lmdb_dataset_root}/z', map_size=2_520_000_000)
     put_z(vae, env_z, dataset, batch_size, device=device)
     put_single(env_z, 'length', n_samples)
 

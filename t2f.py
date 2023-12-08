@@ -81,8 +81,8 @@ class T2FConfig:
         self.mae_loss_coef = 0.1
         self.pad_cls_token = False
 
-        self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain/checkpoints/0080000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-unsupervised/checkpoints/0150000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain/checkpoints/0300000.pt'
+        self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-unsupervised(1)/checkpoints/0040000.pt'
 
         # sampling algorithm
         self.num_steps = 40

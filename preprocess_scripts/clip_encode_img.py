@@ -13,8 +13,8 @@ def test(**kwargs):
 def main():
     # test(**{'x': 1, 'y': 2})
 
-    img_dir = 'data/MM_CelebA_HQ/images/faces'
-    out_npz = 'data/MM_CelebA_HQ/clip_encoded_img.npz'
+    img_dir = 'data/ffhq/images'
+    out_npz = 'data/ffhq/clip_encoded_img.npz'
 
     img_files = os.listdir(img_dir)
     img_files = sorted([int(file[:file.index('.jpg')]) for file in img_files])

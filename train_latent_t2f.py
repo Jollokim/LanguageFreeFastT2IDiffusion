@@ -109,9 +109,11 @@ def train_loop(args):
                 f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
     experiment_dir = f"{args.results_dir}/{exp_name}"
     checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
+    
+    
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    shutil.copyfile(args.config, f'{experiment_dir}/{args.config}')
+    
     
     
     if args.ckpt_path is None:
@@ -128,6 +130,9 @@ def train_loop(args):
         if config.log.use_tensorboard:
             tensorboard_logger = SummaryWriter(f'{experiment_dir}/tensorboard')
 
+        shutil.copyfile(args.config, f'{experiment_dir}/config.yaml')
+
+        
     # Setup dataset
     dataset = LatentLMDBText2FaceDataset(
         latent_space_path=config.data.root,

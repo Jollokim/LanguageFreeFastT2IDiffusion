@@ -34,6 +34,7 @@ from utils import dist, mprint, get_latest_ckpt, Logger, sample, \
 from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
+import shutil
 
 
 
@@ -109,6 +110,8 @@ def train_loop(args):
     experiment_dir = f"{args.results_dir}/{exp_name}"
     checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
     os.makedirs(checkpoint_dir, exist_ok=True)
+
+    shutil.copyfile(args.config, f'{experiment_dir}/{args.config}')
     
     
     if args.ckpt_path is None:

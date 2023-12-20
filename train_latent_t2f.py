@@ -113,13 +113,8 @@ def train_loop(args):
     
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    
-    
-    
     if args.ckpt_path is None:
         args.ckpt_path = get_latest_ckpt(checkpoint_dir)  # Resumes from the latest checkpoint if it exists
-    
-    
     
     
     mprint(f"Experiment directory created at {experiment_dir}")

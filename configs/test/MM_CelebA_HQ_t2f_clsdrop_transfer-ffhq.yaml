@@ -42,5 +42,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: pretrain_clsdrop0.1
+  tag: pretrain_clsdrop0.1_transfer-ffhq
   use_tensorboard: True

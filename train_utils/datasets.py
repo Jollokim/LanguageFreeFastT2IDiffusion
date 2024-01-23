@@ -382,7 +382,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
     Dataloader for MM-CelebA-HQ with clip encoded text.
     """
     def __init__(self, latent_space_path: str, feature_path: str=None, transform=None, target_transform=None, 
-                 resolution=32, num_channels=4, feat_dim=512, perturb=.75):
+                 resolution=32, num_channels=4, feat_dim=512, perturb=.75, norm_feature=False):
         super().__init__(latent_space_path, feature_path, transform=transform,
                          target_transform=target_transform)
         self._latent_space_path: str = latent_space_path
@@ -392,6 +392,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         self.num_channels = num_channels
 
         self.perturb = perturb
+        self.norm_by_l2 = norm_feature
 
         # read z lmdb
         self._open_lmdb_latent_space()
@@ -425,9 +426,10 @@ class LatentLMDBText2FaceDataset(VisionDataset):
             cond_bi = self.feature_txn.get(f'y-{index}-{rand_idx}'.encode('utf-8'))
             cond = np.frombuffer(cond_bi, dtype=np.float32).reshape([self.feat_dim]).copy()
 
-            if self.perturb is not None:
+            if self.perturb is not None or self.perturb != 0:
                 cond = self.perturb_feat(cond)
-                
+            elif self.norm_feature:
+                cond = norm_by_l2(cond)
         else:
             cond = None
 
@@ -436,16 +438,16 @@ class LatentLMDBText2FaceDataset(VisionDataset):
 
     def perturb_feat(self, cond):
         noise = np.random.randn(self.feat_dim)
-        noise_norm = np.linalg.norm(noise)
+        noise_norm = norm_by_l2(noise)
 
-        cond_norm = np.linalg.norm(cond)
+        cond_norm = norm_by_l2(cond)
 
+        perturbed_cond = cond_norm + (self.perturb*noise_norm)
 
-        cond_hat = cond + (self.perturb*noise*cond_norm/noise_norm)
-
-        perturbed_cond = cond_hat / np.linalg.norm(cond_hat)
+        perturbed_cond = norm_by_l2(perturbed_cond)
 
         return perturbed_cond
+
 
 
     def __len__(self) -> int:
@@ -476,6 +478,13 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         finally:
             self.latent_env = None
             self.feature_env = None
+
+
+def norm_by_l2(vector):
+    vector_l2 = np.linalg.norm(vector)
+    vector_norm = vector / vector_l2
+
+    return vector_norm
 
 
 if __name__ == '__main__':

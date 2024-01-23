@@ -104,7 +104,7 @@ def train_loop(args):
     model_name = config.model.model_type.replace("/", "-")  # e.g., DiT-XL/2 --> DiT-XL-2 (for naming folders)
     data_name = config.data.dataset
     
-    cond_gen = 't2f' if class_dropout_prob == 0 else 'unconditional'
+    cond_gen = 'conditional' if class_dropout_prob == 0 else f'clsdrop{class_dropout_prob}'
     exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
                 f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
     experiment_dir = f"{args.results_dir}/{exp_name}"
@@ -135,6 +135,8 @@ def train_loop(args):
         resolution=config.model.in_size,
         num_channels=config.model.in_channels,
         feat_dim=config.data.feat_dim,
+        perturb=config.train.perturbation,
+        norm_feature=config.data.norm_feature
     )
     sampler = DistributedSampler(
         dataset, num_replicas=size, rank=rank, shuffle=True, seed=args.global_seed
@@ -146,6 +148,8 @@ def train_loop(args):
         drop_last=True
     )
     mprint(f"Dataset contains {len(dataset):,} images ({config.data.root})")
+    mprint(f'Vector perturbation level: {config.train.perturbation}')
+    mprint(f'Feature normalization by l2: {config.data.norm_feature}')
 
     steps_per_epoch = len(dataset) // global_batch_size
     mprint(f"{steps_per_epoch} steps per epoch")
@@ -197,7 +201,7 @@ def train_loop(args):
             start_time = time()
             args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps_start}_cfg{args.cfg_scale}')
             os.makedirs(args.outdir, exist_ok=True)
-            generate_with_net_t2f(args, ema, device, feat_path=config.data.feat_path, feat_dim=config.data.feat_dim)
+            generate_with_net_t2f(args, ema, device, feat_path=config.eval.feat_path, feat_dim=config.data.feat_dim, norm_feature=config.data.norm_feature)
             dist.barrier()
 
             if rank == 0:
@@ -310,7 +314,7 @@ def train_loop(args):
                     start_time = time()
                     args.outdir = os.path.join(experiment_dir, 'fid', f'edm-steps{args.num_steps}-ckpt{train_steps}_cfg{args.cfg_scale}')
                     os.makedirs(args.outdir, exist_ok=True)
-                    generate_with_net_t2f(args, ema, device, feat_path=config.data.feat_path, feat_dim=config.data.feat_dim)
+                    generate_with_net_t2f(args, ema, device, feat_path=config.eval.feat_path, feat_dim=config.data.feat_dim, norm_feature=config.data.norm_feature)
                     dist.barrier()
                     
 

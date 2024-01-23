@@ -9,6 +9,8 @@ from sample import edm_sampler, ablation_sampler
 from utils import StackedRandomGenerator
 import autoencoder
 
+from train_utils.datasets import norm_by_l2
+
 
 
 class T2FConfig:
@@ -36,9 +38,21 @@ class T2FConfig:
         torch.manual_seed(self.seed)
 
 
-    def clip_encode_text(self):
+    def clip_encode_text(self, normalize=False):
         text = clip.tokenize(self.text).to(self.device)
         features = self.text_encoder.encode_text(text).float()
+
+        if normalize:
+            norm_features = torch.zeros_like(features)
+            for i in range(len(features)):
+                feature = features[i].detach().cpu().numpy()
+
+                feature = norm_by_l2(feature)
+                norm_features[i] = torch.tensor(feature)
+
+            return norm_features.to(self.device).float()
+
+
         return features
 
     def create_new_sampling_dir(self, root: str):
@@ -82,7 +96,7 @@ class T2FConfig:
         self.pad_cls_token = False
 
         # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain/checkpoints/0300000.pt'
-        self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-unsupervised(1)/checkpoints/0040000.pt'
+        self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.25/checkpoints/0110000.pt'
 
         # sampling algorithm
         self.num_steps = 40
@@ -104,11 +118,12 @@ class T2FConfig:
 
         # descriptions
         self.text = [
-            'She is attractive and has bushy eyebrows, brown hair, mouth slightly open, high cheekbones, pointy nose, and arched eyebrows. ',
+            'She is attractive and has bushy eyebrows, brown hair, mouth slightly open, high cheekbones, pointy nose, and arched eyebrows. The picture is taken by the sea.',
             'The person has mustache, and bushy eyebrows. He is young. He has beard.',
             'The man is young and has blond hair.',
             "This person has brown skin and is wearing glasses.",
-            "An older lady wearing a hat."
+            "An older lady wearing a hat.",
+            "A person with vibrant red hair and a fair, freckled complexion. Their green eyes sparkle with intelligence and a hint of mischief."
         ]
 
         # create note
@@ -121,7 +136,7 @@ class T2FConfig:
         # CLIP model
         self.text_encoder, _ = clip.load("ViT-B/32", device=self.device)
 
-        self.clip_text = self.clip_encode_text()
+        self.clip_text = self.clip_encode_text(normalize=True)
 
         del self.text_encoder # conserve memory
 

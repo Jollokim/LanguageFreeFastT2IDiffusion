@@ -23,6 +23,8 @@ from models.maskdit import Precond_models, DiT_models
 from utils import *
 import autoencoder
 
+from train_utils.datasets import norm_by_l2
+
 
 # ----------------------------------------------------------------------------
 # Proposed EDM sampler (Algorithm 2).
@@ -303,7 +305,7 @@ def generate_with_net(args, net, device, vae=None, feat_path=None, ext_feature_d
 
 
 @torch.no_grad()
-def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=None): #TODO: take config out of function
+def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=None, norm_feature=False): #TODO: take config out of function
     rank = args.global_rank
     size = args.global_size
     seeds = args.seeds
@@ -341,6 +343,7 @@ def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=
             batch_size,
             feat_path,
             feat_dim,
+            norm_feature,
             device,
             rnd
         )
@@ -375,7 +378,7 @@ def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=
 
 
 
-def retrieve_t2f_features(batch_size, feat_path, feat_dim, device, rnd: StackedRandomGenerator):
+def retrieve_t2f_features(batch_size, feat_path, feat_dim, norm_feature, device, rnd: StackedRandomGenerator):
     env = lmdb.open(feat_path, readonly=True, lock=False, create=False)
 
     with env.begin(write=False) as txn:
@@ -397,6 +400,9 @@ def retrieve_t2f_features(batch_size, feat_path, feat_dim, device, rnd: StackedR
         for sample_idx, descr_idx in zip(batch_sample_idx, batch_descr_idx):
             f_bi = txn.get(f'y-{sample_idx.item()}-{descr_idx.item()}'.encode('utf-8'))
             f = np.frombuffer(f_bi, dtype=np.float32).reshape([feat_dim]).copy()
+
+            if norm_feature:
+                f = norm_by_l2(f)
 
             features.append(f)
 

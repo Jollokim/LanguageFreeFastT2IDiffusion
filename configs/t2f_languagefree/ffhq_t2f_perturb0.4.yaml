@@ -6,6 +6,7 @@ data:
   root: data/ffhq/ffhq_lmdb/z
   feat_path: data/ffhq/ffhq_lmdb/clip_img
   feat_dim: 512
+  norm_feature: True
 
 model:
   precond: edm
@@ -33,7 +34,7 @@ train:
   lr_rampup_kimg: 0
   xflip: False
   max_num_steps: 2_000_000
-  perturbation: 0.01745240643728351
+  perturbation: 0.4
 
 eval: # FID evaluation
   batchsize: 50
@@ -43,6 +44,6 @@ eval: # FID evaluation
 
 log:
   log_every: 50
-  ckpt_every: 10_000 #12_500
-  tag: languagefree_perturb
+  ckpt_every: 5_000 #12_500
+  tag: languagefree_perturb0.4
   use_tensorboard: True

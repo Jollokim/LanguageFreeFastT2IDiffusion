@@ -23,8 +23,8 @@ def get_p_level(angle=30):
 
 
 def main():
-    get_angle()
-    get_p_level()
+    get_angle(0.25)
+    get_p_level(1)
 
 
 if __name__ == '__main__':

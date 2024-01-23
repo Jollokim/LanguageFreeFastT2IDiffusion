@@ -5,41 +5,31 @@ import matplotlib.pyplot as plt
 
 
 
-np.random.seed(2)
+# np.random.seed(2)
 
-a = [0, 1]
-a = a / norm(a)
-p_level = 1
+vector = np.array([0, 1])
+perturbation_level = 0.001
 
+n_rand = 1_000
 
-n_rand = 10000
+per_vectors = []
+for i in range(n_rand):
+    noise = np.random.randn(2)
+    h = vector + perturbation_level*noise*norm(vector)/norm(noise)
 
-x = np.random.randn(n_rand)
-y = np.random.randn(n_rand)
+    h /= norm(h)
 
-noise = np.array([
-    np.array([x[i], y[i]]) / norm(np.array([x[i], y[i]])) for i in range(len(x))
-])
-
-h = a + (p_level*noise)
-h_norm = norm(h, axis=1)
-
-for i in range(len(h_norm)):
-    h[i] = h[i] / h_norm[i]
-
-# print(h.shape)
-# quit()
+    per_vectors.append(h)
 
 
+per_vectors = np.array(per_vectors)
 
-x = h[:, 0]
-y = h[:, 1]
 
 # Create scatterplot
-plt.scatter(x, y, label='Data Points')
-plt.scatter(a[0], a[1], label='Actual')
+plt.scatter(per_vectors[:, 0], per_vectors[:, 1], label='Perturbed Points')
+plt.scatter(vector[0], vector[1], label='Actual')
 plt.scatter(0, 0, label='center')
-plt.title('Scatterplot Example')
+plt.title('Perturbation of datapoint')
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
 plt.xlim((-2, 2))
@@ -50,12 +40,18 @@ plt.legend()
 plt.savefig('./angle/angle.png')
 
 cos_sim_lst = []
-for i in range(h.shape[0]):
-    cos_sim = dot(a, h[i])/(norm(a)*norm(h[i]))
+for i in range(len(per_vectors)):
+    cos_sim = dot(vector, per_vectors[i])/(norm(vector)*norm(per_vectors[i]))
     cos_sim_lst.append(cos_sim)
 
+cos_sim_lst = np.array(cos_sim_lst)
 
-print(np.arccos(min(cos_sim_lst)) * (180/np.pi))
+print()
+print('Angle')
+print('min', min(np.arccos((cos_sim_lst)) * (180/np.pi)))
+print('max', max(np.arccos((cos_sim_lst)) * (180/np.pi)))
+print('mean', np.mean(np.arccos((cos_sim_lst)) * (180/np.pi)))
+print('std', np.std(np.arccos((cos_sim_lst)) * (180/np.pi)))
 
 
 

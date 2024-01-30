@@ -1,14 +1,7 @@
-# NOT USED!
+"""Script for calculating Frechet Inception Distance (FID).
 
-# MIT License
-
-# Copyright (c) [2023] [Anima-Lab]
-
-# This code is adapted from https://github.com/NVlabs/edm/blob/main/fid.py. 
-# The original code is licensed under a Creative Commons 
-# Attribution-NonCommercial-ShareAlike 4.0 International License, which is can be found at licenses/LICENSE_EDM.txt. 
-
-"""Script for calculating Frechet Inception Distance (FID)."""
+simplified version from: https://github.com/Anima-Lab/MaskDiT/tree/master
+"""
 import argparse
 from multiprocessing import Process
 

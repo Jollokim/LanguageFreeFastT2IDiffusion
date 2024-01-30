@@ -82,6 +82,57 @@ class LabelEmbedder(nn.Module):
 
 
 #################################################################################
+#                          Perturbation of input features                         #
+#################################################################################
+
+class FourLayerNet(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(FourLayerNet, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size)
+        self.layer2 = nn.Linear(hidden_size, hidden_size)
+        self.layer3 = nn.Linear(hidden_size, hidden_size)
+        self.layer4 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        x = nn.functional.relu(self.layer1(x))
+        x = nn.functional.relu(self.layer2(x))
+        x = nn.functional.relu(self.layer3(x))
+        x = self.layer4(x)
+        return x
+    
+
+class Perturbator(nn.Module):
+    def __init__(self, input_size=512, hidden_size=512, output_size=512, num_layers=4):
+        super(Perturbator, self).__init__()
+        self.r1 = FourLayerNet(input_size, hidden_size, output_size)
+        self.r2 = FourLayerNet(input_size, hidden_size, output_size)
+
+    def forward(self, x):
+        r1 = self.r1(x)
+        r2 = self.r2(x)
+
+        noise = torch.randn_like(r2)
+
+        h = x + r1 + (noise * torch.exp(r2))
+
+        h_norm = torch.linalg.norm(h, dim=1)
+        
+        # repeat h_norm to match the shape of h
+        h_norm = h_norm.view(h.shape[0], -1).repeat(1, 512)
+
+        h /= h_norm
+
+        print(h)
+        return h
+    
+
+if __name__ == '__main__':
+    perb = Perturbator()
+
+    clip_vectors = torch.randn(10, 512)
+
+    perb(clip_vectors)
+#################################################################################
 #                          Token Masking and Unmasking                          #
 #################################################################################
 

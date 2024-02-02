@@ -8,5 +8,6 @@ assets/
 tmp
 results
 samples_t2f
+samples_archive
 **/__pycache__/**
 

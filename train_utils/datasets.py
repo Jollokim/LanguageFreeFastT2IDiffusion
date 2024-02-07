@@ -392,7 +392,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         self.num_channels = num_channels
 
         self.perturb = perturb
-        self.norm_by_l2 = norm_feature
+        self.norm_feature = norm_feature
 
         # read z lmdb
         self._open_lmdb_latent_space()
@@ -426,7 +426,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
             cond_bi = self.feature_txn.get(f'y-{index}-{rand_idx}'.encode('utf-8'))
             cond = np.frombuffer(cond_bi, dtype=np.float32).reshape([self.feat_dim]).copy()
 
-            if self.perturb is not None or self.perturb != 0:
+            if self.perturb is not None and self.perturb != 0:
                 cond = self.perturb_feat(cond)
             elif self.norm_feature:
                 cond = norm_by_l2(cond)

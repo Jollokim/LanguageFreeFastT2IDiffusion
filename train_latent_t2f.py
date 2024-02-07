@@ -161,7 +161,8 @@ def train_loop(args):
         model_type=config.model.model_type,
         use_decoder=config.model.use_decoder,
         mae_loss_coef=config.model.mae_loss_coef,
-        pad_cls_token=config.model.pad_cls_token
+        pad_cls_token=config.model.pad_cls_token,
+        perturbation=config.model.perturbation
     )
     # Note that parameter initialization is done within the model constructor
     ema = deepcopy(model).to(device)  # Create an EMA of the model for use after training
@@ -222,7 +223,7 @@ def train_loop(args):
     ema.eval()  # EMA model should always be in eval mode
 
     scaler = torch.cuda.amp.GradScaler(enabled=enable_amp)
-
+    torch.autograd.set_detect_anomaly(True)
     # Variables for monitoring/logging purposes:
     train_steps = train_steps_start
     log_steps = 0

@@ -14,6 +14,7 @@ import numpy as np
 import math
 from functools import partial
 from timm.models.vision_transformer import PatchEmbed, Attention, Mlp
+import torch.nn.functional as F
 
 
 def modulate(x, shift, scale):
@@ -69,14 +70,21 @@ class LabelEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
     """
-
-    def __init__(self, num_classes, hidden_size, dropout_prob):
+    def __init__(self, num_classes, hidden_size, dropout_prob, perturb=False):
         super().__init__()
         self.embedding_table = nn.Linear(num_classes, hidden_size, bias=False)
         self.num_classes = num_classes
         self.dropout_prob = dropout_prob
 
+        self.perturb = perturb
+
+        if perturb:
+            self.perturbator = Perturbator(num_classes, num_classes, num_classes)
+
     def forward(self, y):
+        if self.perturb and self.training:
+            y = self.perturbator(y)
+
         embeddings = self.embedding_table(y)
         return embeddings
 
@@ -86,6 +94,9 @@ class LabelEmbedder(nn.Module):
 #################################################################################
 
 class FourLayerNet(nn.Module):
+    """
+    Four layer neural network for perturbation.    
+    """
     def __init__(self, input_size, hidden_size, output_size):
         super(FourLayerNet, self).__init__()
         self.layer1 = nn.Linear(input_size, hidden_size)
@@ -94,35 +105,32 @@ class FourLayerNet(nn.Module):
         self.layer4 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        x = nn.functional.relu(self.layer1(x))
-        x = nn.functional.relu(self.layer2(x))
-        x = nn.functional.relu(self.layer3(x))
+        x = F.relu(self.layer1(x))
+        x = F.relu(self.layer2(x))
+        x = F.relu(self.layer3(x))
         x = self.layer4(x)
         return x
     
 
 class Perturbator(nn.Module):
-    def __init__(self, input_size=512, hidden_size=512, output_size=512, num_layers=4):
+    """
+    Perturbator for clip labels.
+    """
+    def __init__(self, input_size=512, hidden_size=512, output_size=512):
         super(Perturbator, self).__init__()
         self.r1 = FourLayerNet(input_size, hidden_size, output_size)
         self.r2 = FourLayerNet(input_size, hidden_size, output_size)
 
-    def forward(self, x):
-        r1 = self.r1(x)
-        r2 = self.r2(x)
+    def forward(self, y):
+        r1 = self.r1(y)
+        r2 = self.r2(y)
 
         noise = torch.randn_like(r2)
 
-        h = x + r1 + (noise * torch.exp(r2))
+        h = y + (r1 + (noise * torch.exp(r2)))
 
-        h_norm = torch.linalg.norm(h, dim=1)
-        
-        # repeat h_norm to match the shape of h
-        h_norm = h_norm.view(h.shape[0], -1).repeat(1, 512)
+        h = F.normalize(h, p=2, dim=1)
 
-        h /= h_norm
-
-        print(h)
         return h
     
 
@@ -309,6 +317,7 @@ class DiT(nn.Module):
             ext_feature_dim=0,  # decide if condition on external features (0 = no feature)
             use_encoder_feat=False,  # decide if condition on encoder output feature
             norm_layer=partial(nn.LayerNorm, eps=1e-6),  # normalize the encoder output feature
+            perturbation=False,
     ):
         super().__init__()
         self.learn_sigma = learn_sigma
@@ -328,7 +337,7 @@ class DiT(nn.Module):
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size)
         self.t_embedder = TimestepEmbedder(hidden_size)
-        self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob) if num_classes else None
+        self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob, perturbation) if num_classes else None
         num_patches = self.x_embedder.num_patches
 
         self.cls_token = None

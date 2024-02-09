@@ -11,3 +11,4 @@ samples_t2f
 samples_archive
 **/__pycache__/**
 
+/venv-fidelity/

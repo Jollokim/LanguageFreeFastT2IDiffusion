@@ -12,3 +12,5 @@ samples_archive
 **/__pycache__/**
 
 /venv-fidelity/
+
+modal_analysis/

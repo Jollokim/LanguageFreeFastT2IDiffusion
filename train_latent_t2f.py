@@ -223,7 +223,9 @@ def train_loop(args):
     ema.eval()  # EMA model should always be in eval mode
 
     scaler = torch.cuda.amp.GradScaler(enabled=enable_amp)
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True) # for debugging
+
+
     # Variables for monitoring/logging purposes:
     train_steps = train_steps_start
     log_steps = 0

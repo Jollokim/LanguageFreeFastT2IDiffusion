@@ -97,18 +97,24 @@ class FourLayerNet(nn.Module):
     """
     Four layer neural network for perturbation.    
     """
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size, output_size, ReLu_act=True):
         super(FourLayerNet, self).__init__()
         self.layer1 = nn.Linear(input_size, hidden_size)
         self.layer2 = nn.Linear(hidden_size, hidden_size)
         self.layer3 = nn.Linear(hidden_size, hidden_size)
         self.layer4 = nn.Linear(hidden_size, output_size)
 
+        self.ReLu_act = ReLu_act
+
     def forward(self, x):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
         x = F.relu(self.layer3(x))
         x = self.layer4(x)
+
+        if self.ReLu_act:
+            x = F.relu(x)
+
         return x
     
 
@@ -118,28 +124,26 @@ class Perturbator(nn.Module):
     """
     def __init__(self, input_size=512, hidden_size=512, output_size=512):
         super(Perturbator, self).__init__()
-        self.r1 = FourLayerNet(input_size, hidden_size, output_size)
-        self.r2 = FourLayerNet(input_size, hidden_size, output_size)
+        self.r2_net = FourLayerNet(input_size, hidden_size, output_size)
 
     def forward(self, y):
-        r1 = self.r1(y)
-        r2 = self.r2(y)
+        r2 = self.forward_features(y)
 
         noise = torch.randn_like(r2)
+        noise_norm = F.normalize(noise, p=2, dim=1)
 
-        h = y + (r1 + (noise * torch.exp(r2)))
+        h = y + (r2 * noise_norm)
 
         h = F.normalize(h, p=2, dim=1)
 
         return h
-    
 
-if __name__ == '__main__':
-    perb = Perturbator()
 
-    clip_vectors = torch.randn(10, 512)
+    def forward_features(self, y):
+        r2 = self.r2_net(y)
 
-    perb(clip_vectors)
+        return r2
+
 #################################################################################
 #                          Token Masking and Unmasking                          #
 #################################################################################

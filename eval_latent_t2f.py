@@ -49,7 +49,21 @@ def requires_grad(model, flag=True):
 
 
 def fid_fn(model, config, args, device):
-    generate_with_net_t2f(args, model, device, feat_path=config.data.feat_path, feat_dim=config.data.feat_dim)
+    generate_with_net_t2f(
+        args, 
+        model, 
+        device, 
+        feat_path=config.eval.feat_path, 
+        feat_dim=config.data.feat_dim, 
+        norm_feature=config.data.norm_feature, 
+        num_steps=args.num_steps,
+        S_churn=args.S_churn, 
+        solver=args.solver, 
+        discretization=args.discretization,
+        schedule=args.schedule, 
+        scaling=args.scaling, 
+        pretrained_path=args.pretrained_path, 
+        ) 
     dist.barrier()
     fid = calculate_fid_given_paths([args.outdir, config.eval.ref_path], config.eval.batchsize, device, 2048, args.num_workers)
     mprint(f'guidance: {args.cfg_scale} FID: {fid}')
@@ -87,10 +101,13 @@ def eval_loop(args):
     data_name = config.data.dataset
 
     # start a new exp path (and resume from the latest checkpoint if possible)
-    cond_gen = 't2f' if class_dropout_prob == 0 else 'unconditional'
-    exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
-                   f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
-    experiment_dir = f"{args.results_dir}/{exp_name}"
+    if args.experiment_dir is None:
+        cond_gen = 'conditional' if class_dropout_prob == 0 else f'clsdrop{class_dropout_prob}'
+        exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
+                    f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
+        experiment_dir = f"{args.results_dir}/{exp_name}"
+    else:
+        experiment_dir = args.experiment_dir
     checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
     ckpt_start, ckpt_end = args.ckpt_id_start, args.ckpt_id_end
     ckpt_path_dict = get_ckpt_paths(checkpoint_dir, ckpt_start, ckpt_end)  # Search for all the checkpoints with id falling in [ckpt_start, ckpt_end]
@@ -181,6 +198,9 @@ if __name__ == '__main__':
     parser.add_argument("--global_seed", type=int, default=0)
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument('--fid_batch_size', type=int, default=128, help='Maximum batch size per GPU')
+
+
+    parser.add_argument('--experiment_dir', type=str, default=None, help='Cusom directory for results')
 
     args = parser.parse_args()
     args.global_size = args.num_proc_node * args.num_process_per_node

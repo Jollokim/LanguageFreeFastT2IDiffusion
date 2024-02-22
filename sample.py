@@ -9,6 +9,7 @@
 
 import argparse
 import random
+import os
 
 import PIL.Image
 import lmdb
@@ -304,8 +305,16 @@ def generate_with_net(args, net, device, vae=None, feat_path=None, ext_feature_d
                 PIL.Image.fromarray(image_np, 'RGB').save(image_path)
 
 
+def batch_already_procurred(batch_seeds: list[int], outdir: str):
+    for i in range(len(batch_seeds)):
+        if os.path.isfile(f'{outdir}/{batch_seeds[i]:06d}.png'):
+            return True
+        
+    return False
+
+
 @torch.no_grad()
-def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=None, norm_feature=False): #TODO: take config out of function
+def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=None, norm_feature=False, **kwargs):
     rank = args.global_rank
     size = args.global_size
     seeds = args.seeds
@@ -332,7 +341,7 @@ def generate_with_net_t2f(args, net, device, vae=None, feat_path=None, feat_dim=
     for batch_seeds in tqdm(rank_batches, unit='batch', disable=(rank != 0)):
         dist.barrier()
         batch_size = len(batch_seeds)
-        if batch_size == 0:
+        if batch_size == 0 or batch_already_procurred(batch_seeds, args.outdir):
             continue
 
         # Pick latents and labels.

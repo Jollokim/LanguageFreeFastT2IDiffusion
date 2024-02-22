@@ -13,4 +13,5 @@ samples_archive
 
 /venv-fidelity/
 
-modal_analysis/
+model_analysis/
+analyze_Perturbator.py

@@ -136,6 +136,7 @@ def train_loop(args):
         num_channels=config.model.in_channels,
         feat_dim=config.data.feat_dim,
         perturb=config.train.perturbation,
+        perturbation_type=config.train.perturbation_type,
         norm_feature=config.data.norm_feature
     )
     sampler = DistributedSampler(

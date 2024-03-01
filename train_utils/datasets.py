@@ -382,7 +382,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
     Dataloader for MM-CelebA-HQ with clip encoded text.
     """
     def __init__(self, latent_space_path: str, feature_path: str=None, transform=None, target_transform=None, 
-                 resolution=32, num_channels=4, feat_dim=512, perturb=.75, norm_feature=False):
+                 resolution=32, num_channels=4, feat_dim=512, perturb=.75, perturbation_type='fixed',norm_feature=False):
         super().__init__(latent_space_path, feature_path, transform=transform,
                          target_transform=target_transform)
         self._latent_space_path: str = latent_space_path
@@ -392,6 +392,8 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         self.num_channels = num_channels
 
         self.perturb = perturb
+        self.perturbation_type = perturbation_type
+
         self.norm_feature = norm_feature
 
         # read z lmdb
@@ -427,7 +429,12 @@ class LatentLMDBText2FaceDataset(VisionDataset):
             cond = np.frombuffer(cond_bi, dtype=np.float32).reshape([self.feat_dim]).copy()
 
             if self.perturb is not None and self.perturb != 0:
-                cond = self.perturb_feat(cond)
+                if self.perturbation_type == 'fixed':
+                    cond = self.fixed_pertub_feat(cond)
+                elif self.perturbation_type == 'gaussian':
+                    cond = self.gaus_perturb_feat(cond)
+                elif self.perturbation_type == 'uniform':
+                    cond = self.uniform_perturb_feat(cond)
             elif self.norm_feature:
                 cond = norm_by_l2(cond)
         else:
@@ -436,18 +443,44 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         return z, cond
     
 
-    def perturb_feat(self, cond):
-        noise = np.random.randn(self.feat_dim)
-        noise_norm = norm_by_l2(noise)
+    def gaus_perturb_feat(self, cond):
+        noise_norm = self.extract_norm_noise()
 
+        perturb = np.random.randn(1) * self.perturb
+
+        return self.perturb_feat(cond, noise_norm, perturb)
+
+
+    def uniform_perturb_feat(self, cond):
+        noise_norm = self.extract_norm_noise()
+
+        perturb = np.random.uniform(0, self.perturb, 1)
+
+        return self.perturb_feat(cond, noise_norm, perturb)
+
+
+    def fixed_pertub_feat(self, cond):
+        noise_norm = self.extract_norm_noise()
+
+        perturb = self.perturb
+
+        return self.perturb_feat(cond, noise_norm, perturb)
+
+
+    def perturb_feat(self, cond, noise_norm, perturb):
         cond_norm = norm_by_l2(cond)
 
-        perturbed_cond = cond_norm + (self.perturb*noise_norm)
+        perturbed_cond = cond_norm + (perturb*noise_norm)
 
         perturbed_cond = norm_by_l2(perturbed_cond)
 
         return perturbed_cond
+    
 
+    def extract_norm_noise(self):
+        noise = np.random.randn(self.feat_dim)
+        noise_norm = norm_by_l2(noise)
+        return noise_norm
 
 
     def __len__(self) -> int:
@@ -457,6 +490,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
     def _open_lmdb_latent_space(self):
         self.latent_env = lmdb.open(self._latent_space_path, readonly=True, lock=False, create=False)
         self.latent_txn = self.latent_env.begin(write=False)
+
 
     def _open_lmdb_feature(self):
         self.feature_env = lmdb.open(self._feature_path, readonly=True, lock=False, create=False)
@@ -468,6 +502,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
             self.close()
         except:
             pass
+
 
     def close(self):
         try:

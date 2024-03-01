@@ -1,10 +1,10 @@
 data:
-  dataset: MM-CelebA-HQ
+  dataset: ffhq
   category: lmdb
   resolution: 32
   num_channels: 4
-  root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
+  root: data/ffhq/ffhq_lmdb/z
+  feat_path: data/ffhq/ffhq_lmdb/clip_img
   feat_dim: 512
   norm_feature: True
 
@@ -23,7 +23,7 @@ model:
   mae_loss_coef: 0.1
   self_cond: False
   class_dropout_prob: 0.1 # 1 for unconditional, 0 for conditional
-  perturbation: False # learnable perturbation
+  perturbation: True # learnable perturbation
 
 train:
   tf32: False
@@ -31,11 +31,11 @@ train:
   batchsize: 128   # batchsize per GPU
   grad_accum: 1
   epochs: 10_000
-  lr: 0.00001
+  lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 0.4 # fixed perturbation
+  perturbation: 0.8 # fixed perturbation
 
 eval: # FID evaluation
   batchsize: 50
@@ -46,5 +46,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: transfer-ffhq_language-free_perturb0.4
+  tag: languagefree_perturb_learnable+fixed0.8
   use_tensorboard: True

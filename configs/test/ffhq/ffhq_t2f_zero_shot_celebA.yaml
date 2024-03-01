@@ -39,8 +39,8 @@ train:
 
 eval: # FID evaluation
   batchsize: 50
-  ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
-  fid_sample_size: 1024 # testset size
+  ref_path: data/MM_CelebA_HQ/fid_refs/all_fid_ref.npz
+  fid_sample_size: 30_000 # testset size
   feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
 
 log:

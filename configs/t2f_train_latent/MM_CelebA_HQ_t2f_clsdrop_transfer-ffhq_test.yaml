@@ -4,7 +4,7 @@ data:
   resolution: 32
   num_channels: 4
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
   feat_dim: 512
   norm_feature: True
 
@@ -28,14 +28,14 @@ model:
 train:
   tf32: False
   amp: True
-  batchsize: 128   # batchsize per GPU
+  batchsize: 1   # batchsize per GPU
   grad_accum: 1
   epochs: 10_000
-  lr: 0.00001
+  lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
-  max_num_steps: 200_000
-  perturbation: 0.4 # fixed perturbation
+  max_num_steps: 300_000
+  perturbation: 0 # fixed perturbation
 
 eval: # FID evaluation
   batchsize: 50
@@ -46,5 +46,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: transfer-ffhq_language-free_perturb0.4
+  tag: from_ffhq_finetuneceleb_noperb
   use_tensorboard: True

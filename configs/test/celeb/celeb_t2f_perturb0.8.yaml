@@ -31,20 +31,20 @@ train:
   batchsize: 128   # batchsize per GPU
   grad_accum: 1
   epochs: 10_000
-  lr: 0.00001
+  lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 0.4 # fixed perturbation
+  perturbation: 0.8
 
 eval: # FID evaluation
   batchsize: 50
-  ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
-  fid_sample_size: 1024 # testset size
+  ref_path: data/MM_CelebA_HQ/fid_refs/all_fid_ref.npz
+  fid_sample_size: 30_000 # testset size
   feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
 
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: transfer-ffhq_language-free_perturb0.4
+  tag: languagefree_perturb0.8
   use_tensorboard: True

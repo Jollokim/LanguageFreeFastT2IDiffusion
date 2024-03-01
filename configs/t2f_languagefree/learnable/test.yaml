@@ -21,6 +21,7 @@ model:
   mask_ratio_fn: constant
   mask_ratio_min: 0
   mae_loss_coef: 0.1
+  cosine_loss_coef: 0.1
   self_cond: False
   class_dropout_prob: 0.1 # 1 for unconditional, 0 for conditional
   perturbation: True # learnable perturbation
@@ -28,14 +29,14 @@ model:
 train:
   tf32: False
   amp: True
-  batchsize: 1   # batchsize per GPU
+  batchsize: 5   # batchsize per GPU
   grad_accum: 1
   epochs: 10_000
   lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: False # fixed perturbation
+  perturbation: 0 # fixed perturbation
 
 eval: # FID evaluation
   batchsize: 50
@@ -44,7 +45,7 @@ eval: # FID evaluation
   feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
 
 log:
-  log_every: 50
-  ckpt_every: 5_000 #12_500
-  tag: languagefree_perturb_learnable
+  log_every: 10
+  ckpt_every: 25 #12_500
+  tag: languagefree_perturb_learnable_std_debug
   use_tensorboard: True

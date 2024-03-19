@@ -34,8 +34,9 @@ train:
   lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
-  max_num_steps: 200_000
-  perturbation: 0.8
+  max_num_steps: 120_000
+  perturbation: 0.7
+  perturbation_type: fixed
 
 eval: # FID evaluation
   batchsize: 50
@@ -46,5 +47,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: languagefree_perturb0.8
+  tag: languagefree_perturb0.7
   use_tensorboard: True

@@ -4,8 +4,9 @@ data:
   resolution: 32
   num_channels: 4
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
   feat_dim: 512
+  norm_feature: True
 
 model:
   precond: edm
@@ -22,6 +23,7 @@ model:
   mae_loss_coef: 0.1
   self_cond: False
   class_dropout_prob: 0.1 # 1 for unconditional, 0 for conditional
+  perturbation: False # learnable perturbation
 
 train:
   tf32: False
@@ -32,15 +34,18 @@ train:
   lr: 0.0001
   lr_rampup_kimg: 0
   xflip: False
-  max_num_steps: 2_000_000
+  max_num_steps: 200_000
+  perturbation: 1.5 # fixed perturbation
+  perturbation_type: gaussian
 
 eval: # FID evaluation
   batchsize: 50
   ref_path: data/MM_CelebA_HQ/fid_refs/test_fid_ref.npz
   fid_sample_size: 1024 # testset size
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
 
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: pretrain_clsdrop0.1
+  tag: languagefree_perturb_gaussian1.5
   use_tensorboard: True

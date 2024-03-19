@@ -137,7 +137,8 @@ def train_loop(args):
         feat_dim=config.data.feat_dim,
         perturb=config.train.perturbation,
         perturbation_type=config.train.perturbation_type,
-        norm_feature=config.data.norm_feature
+        norm_feature=config.data.norm_feature,
+        num_feat_per_sample=args.num_features_per_sample
     )
     sampler = DistributedSampler(
         dataset, num_replicas=size, rank=rank, shuffle=True, seed=args.global_seed
@@ -372,6 +373,8 @@ if __name__ == '__main__':
     parser.add_argument("--use_ckpt_path", type=str2bool, default=True)
     parser.add_argument("--use_strict_load", type=str2bool, default=True)
     parser.add_argument("--tag", type=str, default='')
+
+    parser.add_argument("--num_features_per_sample", type=int, default=None, help='Number of features per sample')
 
     # sampling
     parser.add_argument('--enable_eval', action='store_true', help='enable fid calc during training')

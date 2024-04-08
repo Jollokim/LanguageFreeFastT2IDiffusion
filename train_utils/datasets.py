@@ -15,6 +15,8 @@ import torch
 from torchvision.datasets import ImageFolder, VisionDataset
 from torchvision import transforms
 
+from scipy.stats import truncnorm
+
 
 
 def center_crop_arr(pil_image, image_size):
@@ -382,7 +384,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
     Dataloader for MM-CelebA-HQ with clip encoded text.
     """
     def __init__(self, latent_space_path: str, feature_path: str=None, transform=None, target_transform=None, 
-                 resolution=32, num_channels=4, feat_dim=512, perturb=.75, perturbation_type='fixed',norm_feature=False, num_feat_per_sample=None):
+                 resolution=32, num_channels=4, feat_dim=512, perturb=.75, trunc_a=None, trunc_b=None, mean=None, perturbation_type='fixed',norm_feature=False, num_feat_per_sample=None):
         super().__init__(latent_space_path, feature_path, transform=transform,
                          target_transform=target_transform)
         self._latent_space_path: str = latent_space_path
@@ -391,7 +393,13 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         self.resolution = resolution
         self.num_channels = num_channels
 
+        self.mean = mean
         self.perturb = perturb
+        self.trunc_a = trunc_a
+        self.trunc_b = trunc_b
+        
+
+
         self.perturbation_type = perturbation_type
 
         self.norm_feature = norm_feature
@@ -438,6 +446,10 @@ class LatentLMDBText2FaceDataset(VisionDataset):
                     cond = self.fixed_pertub_feat(cond)
                 elif self.perturbation_type == 'gaussian':
                     cond = self.gaus_perturb_feat(cond)
+                elif self.perturbation_type == 'clip_trunc_gaussian':
+                    cond = self.clip_trunc_gaus_perturb_feat(cond)
+                elif self.perturbation_type == 'scipy_trunc_gaussian':
+                    cond = self.scipy_trunc_gaussian(cond)
                 elif self.perturbation_type == 'uniform':
                     cond = self.uniform_perturb_feat(cond)
             elif self.norm_feature:
@@ -446,8 +458,26 @@ class LatentLMDBText2FaceDataset(VisionDataset):
             cond = None
 
         return z, cond
+        
+    def scipy_trunc_gaussian(self, cond):
+        noise_norm = self.extract_norm_noise()
+
+        a, b = (a - self.mean) / self.perturb, (b - self.mean) / self.perturb
+        perturb = truncnorm.rvs(a, b, loc=self.mean, scale=self.perturb, size=1)
+
+        return self.perturb_feat(cond, noise_norm, perturb)
     
 
+    def clip_trunc_gaus_perturb_feat(self, cond):
+        # NOTE: does not currently work
+        noise_norm = self.extract_norm_noise()
+
+        perturb = np.random.randn(1) * self.perturb
+        perturb = np.clip(perturb, -self.truncation, self.truncation)
+
+        return self.perturb_feat(cond, noise_norm, perturb)
+
+        
     def gaus_perturb_feat(self, cond):
         noise_norm = self.extract_norm_noise()
 
@@ -486,7 +516,7 @@ class LatentLMDBText2FaceDataset(VisionDataset):
         noise = np.random.randn(self.feat_dim)
         noise_norm = norm_by_l2(noise)
         return noise_norm
-
+    
 
     def __len__(self) -> int:
         return self.length

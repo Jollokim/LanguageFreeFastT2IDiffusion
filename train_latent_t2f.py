@@ -106,7 +106,9 @@ def train_loop(args):
     
     cond_gen = 'conditional' if class_dropout_prob == 0 else f'clsdrop{class_dropout_prob}'
     exp_name = f'{model_name}-{config.model.precond}-{data_name}-{cond_gen}-m{config.model.mask_ratio}-de{int(config.model.use_decoder)}' \
-                f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}-{config.log.tag}'
+                f'-mae{config.model.mae_loss_coef}-bs-{global_batch_size}-lr{config.train.lr}' \
+                f'-{config.train.perturbation_type}{config.train.perturbation}trunc{config.train.trunc_a}-{config.train.trunc_b}mean{config.train.mean}' \
+                f'-{config.log.tag}'
     experiment_dir = f"{args.results_dir}/{exp_name}"
     checkpoint_dir = f"{experiment_dir}/checkpoints"  # Stores saved model checkpoints
     
@@ -136,6 +138,9 @@ def train_loop(args):
         num_channels=config.model.in_channels,
         feat_dim=config.data.feat_dim,
         perturb=config.train.perturbation,
+        trunc_a=config.train.trunc_a,
+        trunc_b=config.train.trunc_b,
+        mean=config.train.mean,
         perturbation_type=config.train.perturbation_type,
         norm_feature=config.data.norm_feature,
         num_feat_per_sample=args.num_features_per_sample
@@ -151,8 +156,9 @@ def train_loop(args):
     )
     mprint(f"Dataset contains {len(dataset):,} images ({config.data.root})")
     mprint(f'Vector perturbation level: {config.train.perturbation}')
+    mprint(f'Truncation level: {config.train.trunc_a, config.train.trunc_b}')
     mprint(f'Feature normalization by l2: {config.data.norm_feature}')
-
+    
     steps_per_epoch = len(dataset) // global_batch_size
     mprint(f"{steps_per_epoch} steps per epoch")
 

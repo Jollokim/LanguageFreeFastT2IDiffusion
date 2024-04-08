@@ -235,7 +235,7 @@ def train_loop(args):
 
 
     # defining the learning rate warmup if finetuning
-    config.train.warmup_steps = config.train.warmup_steps + train_steps_start
+    config.train.lr_warmup_steps = config.train.lr_warmup_steps + train_steps_start
 
     # Variables for monitoring/logging purposes:
     train_steps = train_steps_start
@@ -274,7 +274,7 @@ def train_loop(args):
                     loss_batch += loss_mean.item()
 
             # Update weights with lr warmup.     
-            if train_steps < config.train.warmup_steps:
+            if train_steps < config.train.lr_warmup_steps:
                 lr_cur = config.train.lr_warmup
             else:
                 lr_cur = config.train.lr * min(train_steps * global_batch_size / max(config.train.lr_rampup_kimg * 1000, 1e-8), 1)
@@ -313,7 +313,7 @@ def train_loop(args):
                 start_time = time()
 
             # Save checkpoint:
-            if train_steps % ckpt_every == 0 and train_steps > train_steps_start and config.train.warmup_steps <= train_steps:
+            if train_steps % ckpt_every == 0 and train_steps > train_steps_start and config.train.lr_warmup_steps <= train_steps and config.log.ckpt_after < train_steps:
                 if rank == 0:
                     checkpoint = {
                         "model": model.module.state_dict(),

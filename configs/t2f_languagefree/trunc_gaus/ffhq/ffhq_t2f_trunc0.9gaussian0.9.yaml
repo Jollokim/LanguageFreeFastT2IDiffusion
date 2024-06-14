@@ -1,10 +1,10 @@
 data:
-  dataset: MM-CelebA-HQ
+  dataset: ffhq
   category: lmdb
   resolution: 32
   num_channels: 4
-  root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
+  root: data/ffhq/ffhq_lmdb/z
+  feat_path: data/ffhq/ffhq_lmdb/clip_img
   feat_dim: 512
   norm_feature: True
 
@@ -33,10 +33,13 @@ train:
   epochs: 10_000
   lr: 0.0001
   lr_rampup_kimg: 0
+  lr_warmup: 0
+  lr_warmup_steps: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 1.2 # fixed perturbation
-  perturbation_type: gaussian
+  perturbation: 0.9 # fixed perturbation
+  truncation: 0.9 # gaussian area control
+  perturbation_type: trunc_gaussian
 
 eval: # FID evaluation
   batchsize: 50
@@ -47,5 +50,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: languagefree_perturb_gaussian1.2
+  tag: languagefree
   use_tensorboard: True

@@ -4,9 +4,9 @@ data:
   resolution: 32
   num_channels: 4
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
   feat_dim: 512
-  norm_feature: False
+  norm_feature: True
 
 model:
   precond: edm
@@ -37,9 +37,9 @@ train:
   lr_warmup_steps: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 0 # fixed perturbation
-  truncation: 0 # gaussian area control
-  perturbation_type: none # parameter does not matter if perturbation is False
+  perturbation: 0.8 # fixed perturbation
+  truncation: 0.8 # gaussian area control
+  perturbation_type: trunc_gaussian
 
 eval: # FID evaluation
   batchsize: 50
@@ -50,5 +50,5 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: text-image-1features
+  tag: languagefree
   use_tensorboard: True

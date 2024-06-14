@@ -4,9 +4,9 @@ data:
   resolution: 32
   num_channels: 4
   root: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/z
-  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_txt
+  feat_path: data/MM_CelebA_HQ/MM_CelebA_HQ_lmdb/clip_img
   feat_dim: 512
-  norm_feature: False
+  norm_feature: True
 
 model:
   precond: edm
@@ -17,7 +17,7 @@ model:
   use_decoder: True
   ext_feature_dim: 0
   pad_cls_token: False
-  mask_ratio: 0.5
+  mask_ratio: 0
   mask_ratio_fn: constant
   mask_ratio_min: 0
   mae_loss_coef: 0.1
@@ -26,20 +26,20 @@ model:
   perturbation: False # learnable perturbation
 
 train:
-  tf32: False
-  amp: True
-  batchsize: 128   # batchsize per GPU
+  tf32: True
+  amp: False
+  batchsize: 64   # batchsize per GPU
   grad_accum: 1
   epochs: 10_000
-  lr: 0.0001
-  lr_rampup_kimg: 0
+  lr: 0.00001
+  lr_rampup_kimg: 0 # not used
   lr_warmup: 0
   lr_warmup_steps: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 0 # fixed perturbation
-  truncation: 0 # gaussian area control
-  perturbation_type: none # parameter does not matter if perturbation is False
+  perturbation: 1.2 # fixed perturbation
+  perturbation_type: gaussian
+
 
 eval: # FID evaluation
   batchsize: 50
@@ -49,6 +49,6 @@ eval: # FID evaluation
 
 log:
   log_every: 50
-  ckpt_every: 5_000 #12_500
-  tag: text-image-1features
+  ckpt_every: 250 #12_500
+  tag: languagefree_perturb_gaussian1.2
   use_tensorboard: True

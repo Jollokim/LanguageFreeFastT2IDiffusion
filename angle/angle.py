@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 # np.random.seed(2)
 
 vector = np.array([0, 1])
-perturbation_level = 0.001
+perturbation_level = 0.7
 
-n_rand = 1_000
+n_rand = 10_000
 
 per_vectors = []
 for i in range(n_rand):

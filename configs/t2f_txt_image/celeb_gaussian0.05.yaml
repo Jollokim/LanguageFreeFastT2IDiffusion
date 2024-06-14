@@ -37,9 +37,11 @@ train:
   lr_warmup_steps: 0
   xflip: False
   max_num_steps: 200_000
-  perturbation: 0 # fixed perturbation
-  truncation: 0 # gaussian area control
-  perturbation_type: none # parameter does not matter if perturbation is False
+  trunc_a: 0 # doesn't matter
+  trunc_b: 0 # doesn't matter
+  perturbation: 0.05 # std perturbation
+  mean: 0 # doesn't matter
+  perturbation_type: gaussian
 
 eval: # FID evaluation
   batchsize: 50
@@ -50,5 +52,6 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: text-image-1features
+  ckpt_after: 25_000
+  tag: text-image-with-gaussian
   use_tensorboard: True

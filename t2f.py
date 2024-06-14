@@ -22,7 +22,7 @@ class T2FConfig:
             model_type=self.model_type,
             use_decoder=self.use_decoder,
             mae_loss_coef=self.mae_loss_coef,
-            pad_cls_token=self.pad_cls_token
+            pad_cls_token=self.pad_cls_token,
         )
 
         return model
@@ -40,7 +40,7 @@ class T2FConfig:
 
     def clip_encode_text(self, normalize=False):
         text = clip.tokenize(self.text).to(self.device)
-        features = self.text_encoder.encode_text(text).float()
+        features = self.model.encode_text(text).float()
 
         if normalize:
             norm_features = torch.zeros_like(features)
@@ -54,6 +54,30 @@ class T2FConfig:
 
 
         return features
+    
+    
+    def clip_encode_image(self, normalize=True):
+        images_path = self.images
+        images = []
+        for path in images_path:
+            image = PIL.Image.open(path).convert('RGB')
+            image = self.transform(image).unsqueeze(0).to(self.device)
+            images.append(image)
+        images = torch.cat(images, dim=0)
+        features = self.model.encode_image(images).float()
+
+        if normalize:
+            norm_features = torch.zeros_like(features)
+            for i in range(len(features)):
+                feature = features[i].detach().cpu().numpy()
+
+                feature = norm_by_l2(feature)
+                norm_features[i] = torch.tensor(feature)
+
+            return norm_features.to(self.device).float()
+
+        return features
+    
 
     def create_new_sampling_dir(self, root: str):
         dirs = os.listdir(root)
@@ -96,7 +120,22 @@ class T2FConfig:
         self.pad_cls_token = False
 
         # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain/checkpoints/0300000.pt'
-        self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.25/checkpoints/0110000.pt'
+        # self.ckpt = 'results/language_free_perb_fixed/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.8/checkpoints/0200000.pt'
+        # self.ckpt = 'results/language_free_perb_fixed/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.25/checkpoints/0110000.pt'
+        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain(missingclsdropout)(pureclassconditional)/checkpoints/0080000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_learnable/checkpoints/0095000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_gaussian0.7/checkpoints/0105000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-trunc_gaussian0.01trunc(0, 1.6)mean0.8-languagefree/checkpoints/0080000.pt'
+        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0-de1-mae0.1-bs-64-lr0.0001--perb:trunc_gaussian1.2-languagefree_perturb_gaussian1.2/checkpoints/0080000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian1.2trunc0-0mean0-languagefree_from_ffhq/checkpoints/0121000.pt'
+        # self.ckpt = 'results/text-image/DiT-XL-2-edm-MM-CelebA-HQ-unconditional-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain_clsdrop0.1/checkpoints/0150000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr1e-05-gaussian0trunc0-0mean0-from_lf_ffhq_to_ti/checkpoints/0204000.pt'
+        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-unsupervised(1)/checkpoints/0100000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian10trunc0-0mean0-languagefree/checkpoints/0100000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-fixed10trunc0-0mean0-languagefree/checkpoints/0100000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_gaussian1.5/checkpoints/0100000.pt'
+        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian3trunc0-0mean0-languagefree/checkpoints/0100000.pt'
+        self.ckpt = 'results/language_free/celeb/masked_finetuning_exp/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr5e-05-gaussian1.2trunc0-0mean0-languagefree_from_ffhq/checkpoints/0139000.pt'
 
         # sampling algorithm
         self.num_steps = 40
@@ -107,7 +146,7 @@ class T2FConfig:
         self.scaling = None
 
         # classifier free guidance / tends to saturate colors in image
-        self.cfg_scale = 2
+        self.cfg_scale = 4
 
         # VAE
         self.pretrained_path = 'assets/stable_diffusion/autoencoder_kl.pth'
@@ -118,27 +157,40 @@ class T2FConfig:
 
         # descriptions
         self.text = [
-            'She is attractive and has bushy eyebrows, brown hair, mouth slightly open, high cheekbones, pointy nose, and arched eyebrows. The picture is taken by the sea.',
-            'The person has mustache, and bushy eyebrows. He is young. He has beard.',
-            'The man is young and has blond hair.',
-            "This person has brown skin and is wearing glasses.",
-            "An older lady wearing a hat.",
-            "A person with vibrant red hair and a fair, freckled complexion. Their green eyes sparkle with intelligence and a hint of mischief."
+            "This woman is an elf. She has long ears and a beautiful face.",
+            "This creature is a troll. He has a big nose and is angry.",
+            "This is a dragon. It has wings and can fly.",
+
+        ]
+
+
+
+
+        self.images = [
+            # 'data/friends_HQ/aarati2.png',
         ]
 
         # create note
         self.create_config_note()
 
         # sampling size per description
-        self.batch_size = 5 # number of images per description
-        self.seeds = [i for i in range(self.batch_size)]
+        self.batch_size = 64 # number of images per description
+        self.seeds = [i for i in range(self.seed, (self.seed+self.batch_size))]
 
         # CLIP model
-        self.text_encoder, _ = clip.load("ViT-B/32", device=self.device)
+        self.model, self.transform = clip.load("ViT-B/32", device=self.device)
 
-        self.clip_text = self.clip_encode_text(normalize=True)
+        
 
-        del self.text_encoder # conserve memory
+        if len(self.text) > 0:
+            self.clip_text = self.clip_encode_text(normalize=True)
+        # self.clip_text = self.clip_encode_text(normalize=True) # normalizing is important depending on laguage free model or not!
+
+        if len(self.images) > 0:
+            self.clip_img = self.clip_encode_image(normalize=True)
+        # self.clip_img = self.clip_encode_image(normalize=True)
+
+        del self.model # conserve memory
 
         self.model = self.create_model()
         self.load_model_weights()
@@ -171,41 +223,80 @@ def generate_text_to_face(args: T2FConfig, net, device, vae=None):
     if vae is None:
         vae = autoencoder.get_model(args.pretrained_path).to(device)
 
-    # generate images
-    print(f'Generating {len(seeds)} images for {args.clip_text.shape[0]} descriptions to "{args.outdir}"...')
-    for i in tqdm(range(args.clip_text.shape[0]), unit='description'):
-        
-        # Pick latents and labels.
-        rnd = StackedRandomGenerator(device, seeds)
-        latents = rnd.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
-        
-        class_labels = args.clip_text[i].reshape(1, args.num_classes).expand(batch_size, -1)
-
-        # Generate images.
-        def recur_decode(z):
-            try:
-                return vae.decode(z)
-            except:  # reduce the batch for vae decoder but two forward passes when OOM happens occasionally
-                assert z.shape[2] % 2 == 0
-                z1, z2 = z.tensor_split(2)
-                return torch.cat([recur_decode(z1), recur_decode(z2)])
-
-        with torch.no_grad():
-            z = sampler_fn(net, latents.float(), class_labels.float(), randn_like=rnd.randn_like,
-                           cfg_scale=args.cfg_scale, **sampler_kwargs).float()
-            images = recur_decode(z)
+    if args.clip_text is not None:
+        # generate images
+        print(f'Generating {len(seeds)} images for {args.clip_text.shape[0]} descriptions to "{args.outdir}"...')
+        for i in tqdm(range(args.clip_text.shape[0]), unit='description'):
             
-        # Save images.
-        images_np = images.add_(1).mul(127.5).clamp_(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
-        # images_np = (images * 127.5 + 128).clip(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
-        for seed, image_np in zip(seeds, images_np):
-            image_dir = os.path.join(args.outdir, f'description_{i}')
-            os.makedirs(image_dir, exist_ok=True)
-            image_path = os.path.join(image_dir, f'{seed:06d}.png')
-            if image_np.shape[2] == 1:
-                PIL.Image.fromarray(image_np[:, :, 0], 'L').save(image_path)
-            else:
-                PIL.Image.fromarray(image_np, 'RGB').save(image_path)
+            # Pick latents and labels.
+            rnd = StackedRandomGenerator(device, seeds)
+            latents = rnd.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
+            
+            class_labels = args.clip_text[i].reshape(1, args.num_classes).expand(batch_size, -1)
+
+            # Generate images.
+            def recur_decode(z):
+                try:
+                    return vae.decode(z)
+                except:  # reduce the batch for vae decoder but two forward passes when OOM happens occasionally
+                    assert z.shape[2] % 2 == 0
+                    z1, z2 = z.tensor_split(2)
+                    return torch.cat([recur_decode(z1), recur_decode(z2)])
+
+            with torch.no_grad():
+                z = sampler_fn(net, latents.float(), class_labels.float(), randn_like=rnd.randn_like,
+                            cfg_scale=args.cfg_scale, **sampler_kwargs).float()
+                images = recur_decode(z)
+                
+            # Save images.
+            images_np = images.add_(1).mul(127.5).clamp_(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+            # images_np = (images * 127.5 + 128).clip(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+            for seed, image_np in zip(seeds, images_np):
+                image_dir = os.path.join(args.outdir, f'description_{i}')
+                os.makedirs(image_dir, exist_ok=True)
+                image_path = os.path.join(image_dir, f'{seed:06d}.png')
+                if image_np.shape[2] == 1:
+                    PIL.Image.fromarray(image_np[:, :, 0], 'L').save(image_path)
+                else:
+                    PIL.Image.fromarray(image_np, 'RGB').save(image_path)
+
+    
+    if args.clip_img is not None:
+        # generate images
+        print(f'Generating {len(seeds)} images for {args.clip_img.shape[0]} images to "{args.outdir}"...')
+        for i in tqdm(range(args.clip_img.shape[0]), unit='image'):
+            
+            # Pick latents and labels.
+            rnd = StackedRandomGenerator(device, seeds)
+            latents = rnd.randn([batch_size, net.img_channels, net.img_resolution, net.img_resolution], device=device)
+            
+            class_labels = args.clip_img[i].reshape(1, args.num_classes).expand(batch_size, -1)
+
+            # Generate images.
+            def recur_decode(z):
+                try:
+                    return vae.decode(z)
+                except:  # reduce the batch for vae decoder but two forward passes when OOM happens occasionally
+                    assert z.shape[2] % 2 == 0
+                    z1, z2 = z.tensor_split(2)
+                    return torch.cat([recur_decode(z1), recur_decode(z2)])
+
+            with torch.no_grad():
+                z = sampler_fn(net, latents.float(), class_labels.float(), randn_like=rnd.randn_like,
+                            cfg_scale=args.cfg_scale, **sampler_kwargs).float()
+                images = recur_decode(z)
+                
+            # Save images.
+            images_np = images.add_(1).mul(127.5).clamp_(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+            # images_np = (images * 127.5 + 128).clip(0, 255).to(torch.uint8).permute(0, 2, 3, 1).cpu().numpy()
+            for seed, image_np in zip(seeds, images_np):
+                image_dir = os.path.join(args.outdir, f'image_{i}')
+                os.makedirs(image_dir, exist_ok=True)
+                image_path = os.path.join(image_dir, f'{seed:06d}.png')
+                if image_np.shape[2] == 1:
+                    PIL.Image.fromarray(image_np[:, :, 0], 'L').save(image_path)
+                else:
+                    PIL.Image.fromarray(image_np, 'RGB').save(image_path)
 
 
 if __name__ == '__main__':

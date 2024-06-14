@@ -36,9 +36,10 @@ train:
   lr_warmup: 0
   lr_warmup_steps: 0
   xflip: False
-  max_num_steps: 2_000_000
+  max_num_steps: 200_000
   perturbation: 0 # fixed perturbation
-  perturbation_type: gaussian
+  truncation: 0 # gaussian area control
+  perturbation_type: none # parameter does not matter if perturbation is False
 
 eval: # FID evaluation
   batchsize: 50

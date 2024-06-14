@@ -23,7 +23,7 @@ def get_p_level(angle=30):
 
 
 def main():
-    get_angle(0.25)
+    get_angle(1)
     get_p_level(1)
 
 

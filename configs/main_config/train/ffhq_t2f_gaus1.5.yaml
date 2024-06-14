@@ -33,9 +33,14 @@ train:
   epochs: 10_000
   lr: 0.0001
   lr_rampup_kimg: 0
+  lr_warmup: 0
+  lr_warmup_steps: 0
   xflip: False
-  max_num_steps: 200_000
-  perturbation: 1.5 # fixed perturbation
+  max_num_steps: 300_000
+  trunc_a: 0 # doesn't matter
+  trunc_b: 0 # doesn't matter
+  perturbation: 1.2 # std perturbation
+  mean: 0 # doesn't matter
   perturbation_type: gaussian
 
 eval: # FID evaluation
@@ -47,5 +52,6 @@ eval: # FID evaluation
 log:
   log_every: 50
   ckpt_every: 5_000 #12_500
-  tag: languagefree_perturb_gaussian1.5
+  ckpt_after: 25_000
+  tag: languagefree
   use_tensorboard: True

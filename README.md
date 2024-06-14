@@ -6,7 +6,7 @@ To address these challenges, this thesis explores the use of masked transformer 
 Combining these approaches, this work significantly reduces compute requirements and the necessity for text-image pairs. Using the Multi-Modal-CelebA-High-Quality face dataset, new state-of-the-art results are achieved in a language-free setting with substantially lower resource usage compared to previous methods. Additionally, the study uncovers new insights into the advantages of using image embeddings over text embeddings during training.
 
 <div align='center'>
-<img src="docs/sample_difference.png" alt="LanguagefreeVSTextImage" width="100%" style="display: block;"/>
+<img src="docs/sample_difference.png" alt="LanguagefreeVSTextImage" width="70%" style="display: block;"/>
 </div>
 
 

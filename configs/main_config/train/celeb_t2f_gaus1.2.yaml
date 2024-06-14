@@ -23,7 +23,7 @@ model:
   mae_loss_coef: 0.1
   self_cond: False
   class_dropout_prob: 0.1 # 1 for unconditional, 0 for conditional
-  perturbation: False # learnable perturbation
+  perturbation: False # learnable perturbation, experiments show that it doesn't work well
 
 train:
   tf32: False

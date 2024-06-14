@@ -6,19 +6,32 @@ To address these challenges, this thesis explores the use of masked transformer 
 Combining these approaches, this work significantly reduces compute requirements and the necessity for text-image pairs. Using the Multi-Modal-CelebA-High-Quality face dataset, new state-of-the-art results are achieved in a language-free setting with substantially lower resource usage compared to previous methods. Additionally, the study uncovers new insights into the advantages of using image embeddings over text embeddings during training.
 
 <div align='center'>
-<img src="docs/sample_difference.png" alt="LanguagefreeVSTextImage" width="70%" style="display: block;"/>
+<img src="docs/pipeline.png" alt="pipline" width="100%" style="display: block;"/>
 </div>
-
 
 ## Requirements
 - In our experiments we use one A100 GPU with a batch size of 128. For a dataset of 70K images. It takes approximate 1 day to converge, dependent on validation configuretions.
 
-## Prepare dataset
-We use the pre-trained VAE to first encode the dataset into latent space. You can download the pre-trained VAE by using `download_assets.py`. 
+## Prepare environment
+```bash
+python3 -m venv venv
+pip install -r requirements.txt
 ```
+
+## Prepare autoencoder
+We use the pre-trained VAE to first encode the dataset into latent space. You can download the pre-trained VAE by using `download_assets.py`. 
+```bash
 python3 download_assets.py --name vae --dest assets
 ```
 
+## Prepare dataset
+(arguments in file)
+```bash
+python3 preprocess_scripts/clip_encode_img.py
+python3 preprocess_scripts/clip_encode_text.py
+python3 preprocess_scripts/create_latentspace_lmdb.py
+python3 preprocess_scripts/fid_ref.py
+```
 
 ## Train
 ```bash
@@ -43,7 +56,10 @@ python3 -u t2f.py
 ## Checkpoints
 Coming.
 
-
+# Language-free vs Text-Image pair
+<div align='center'>
+<img src="docs/sample_difference.png" alt="LanguagefreeVSTextImage" width="70%" style="display: block;"/>
+</div>
 
 
 ## Acknowledgements

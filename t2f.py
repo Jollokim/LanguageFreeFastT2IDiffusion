@@ -119,22 +119,7 @@ class T2FConfig:
         self.mae_loss_coef = 0.1
         self.pad_cls_token = False
 
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain/checkpoints/0300000.pt'
-        # self.ckpt = 'results/language_free_perb_fixed/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.8/checkpoints/0200000.pt'
-        # self.ckpt = 'results/language_free_perb_fixed/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb0.25/checkpoints/0110000.pt'
-        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain(missingclsdropout)(pureclassconditional)/checkpoints/0080000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_learnable/checkpoints/0095000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_gaussian0.7/checkpoints/0105000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-trunc_gaussian0.01trunc(0, 1.6)mean0.8-languagefree/checkpoints/0080000.pt'
-        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0-de1-mae0.1-bs-64-lr0.0001--perb:trunc_gaussian1.2-languagefree_perturb_gaussian1.2/checkpoints/0080000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian1.2trunc0-0mean0-languagefree_from_ffhq/checkpoints/0121000.pt'
-        # self.ckpt = 'results/text-image/DiT-XL-2-edm-MM-CelebA-HQ-unconditional-m0.5-de1-mae0.1-bs-128-lr0.0001-pretrain_clsdrop0.1/checkpoints/0150000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr1e-05-gaussian0trunc0-0mean0-from_lf_ffhq_to_ti/checkpoints/0204000.pt'
-        # self.ckpt = 'results/archive/DiT-XL-2-edm-MM-CelebA-HQ-t2f-m0.5-de1-mae0.1-bs-128-lr0.0001-unsupervised(1)/checkpoints/0100000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian10trunc0-0mean0-languagefree/checkpoints/0100000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-fixed10trunc0-0mean0-languagefree/checkpoints/0100000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-languagefree_perturb_gaussian1.5/checkpoints/0100000.pt'
-        # self.ckpt = 'results/DiT-XL-2-edm-ffhq-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr0.0001-gaussian3trunc0-0mean0-languagefree/checkpoints/0100000.pt'
+        # path to the model checkpoint
         self.ckpt = 'results/language_free/celeb/masked_finetuning_exp/DiT-XL-2-edm-MM-CelebA-HQ-clsdrop0.1-m0.5-de1-mae0.1-bs-128-lr5e-05-gaussian1.2trunc0-0mean0-languagefree_from_ffhq/checkpoints/0139000.pt'
 
         # sampling algorithm
@@ -155,19 +140,16 @@ class T2FConfig:
         self.seed = 0
         self.set_seed()
 
-        # descriptions
+        # descriptions for t2i
         self.text = [
-            "This woman is an elf. She has long ears and a beautiful face.",
-            "This creature is a troll. He has a big nose and is angry.",
-            "This is a dragon. It has wings and can fly.",
-
+            "She is attractive and has bushy eyebrows. She has a round face and a small nose. The picture is taken by the sea.",
         ]
 
 
 
-
+        # recreate images
         self.images = [
-            # 'data/friends_HQ/aarati2.png',
+            # 'data/friends_HQ/friend1.png',
         ]
 
         # create note
@@ -184,11 +166,13 @@ class T2FConfig:
 
         if len(self.text) > 0:
             self.clip_text = self.clip_encode_text(normalize=True)
-        # self.clip_text = self.clip_encode_text(normalize=True) # normalizing is important depending on laguage free model or not!
+        else:
+            self.clip_text = None
 
         if len(self.images) > 0:
             self.clip_img = self.clip_encode_image(normalize=True)
-        # self.clip_img = self.clip_encode_image(normalize=True)
+        else:
+            self.clip_img = None
 
         del self.model # conserve memory
 

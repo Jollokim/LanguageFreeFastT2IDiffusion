@@ -25,11 +25,20 @@ python3 download_assets.py --name vae --dest assets
 ```
 
 ## Prepare dataset
+Datasets for original implementation can be downloaded at: [MM-CelebA-HQ](https://github.com/IIGROUP/MM-CelebA-HQ-Dataset) and [FFHQ](https://github.com/NVlabs/ffhq-dataset).
+
 (arguments in file)
 ```bash
+# Generetae npz for CLIP image embeddings
 python3 preprocess_scripts/clip_encode_img.py
+
+# Generetae npz for CLIP image embeddings
 python3 preprocess_scripts/clip_encode_text.py
+
+# Generate latent space LMDB for all embeddings, also image compression with VQ-VAE
 python3 preprocess_scripts/create_latentspace_lmdb.py
+
+# Generate FID reference stats for FID calculations
 python3 preprocess_scripts/fid_ref.py
 ```
 
@@ -42,10 +51,12 @@ python3 -u train_latent_t2f.py --config configs/main_config/test/celeb_t2f.yaml 
 python3 train_latent.py --config configs/main_config/finetune/celeb_t2f_gaus1.2.yaml --ckpt_path [path to checkpoint] --enable_eval --master_port [x]
 ```
 
-## Test
+## Test / evaluate
 ```bash
 python3 -u eval_latent_t2f.py --config configs/main_config/test/celeb_t2f.yaml --ckpt_id_start [start_checkpoint]  --ckpt_id_end [end_checkpoint] --num_process_per_node 1 --master_port 5135 --experiment_dir [experimentation_dir]
 ```
+
+Use [torch-fidelity](https://torch-fidelity.readthedocs.io/en/latest/usage_cmd.html) for Inception Score.
 
 ## Generate Text-to-Image samples
 To generate samples(arguments in file):
